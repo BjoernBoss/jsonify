@@ -5,6 +5,7 @@
 #include <sstream>
 #include <charconv>
 #include <limits>
+#include <map>
 
 struct JsonSerializeState {
 private:
