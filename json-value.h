@@ -1,5 +1,8 @@
 #pragma once
 
+#include "json-common.h"
+#include "json-serialize.h"
+
 #include <cstdint>
 #include <unordered_map>
 #include <string>
@@ -15,11 +18,6 @@ namespace json {
 	using Arr = std::vector<json::Value>;
 	using Obj = std::unordered_map<std::wstring, json::Value>;
 	using Str = std::wstring;
-	using UNum = uint64_t;
-	using INum = int64_t;
-	using Real = double;
-	using Bool = bool;
-	struct Null {};
 
 	class JsonTypeException : public std::runtime_error {
 	public:
@@ -29,23 +27,13 @@ namespace json {
 	public:
 		JsonRangeException(const std::string& s) : runtime_error(s) {}
 	};
-	enum class Type : uint8_t {
-		null,
-		boolean,
-		unumber,
-		inumber,
-		real,
-		string,
-		array,
-		object
-	};
 
 	namespace detail {
 		using ArrPtr = std::unique_ptr<json::Arr>;
 		using StrPtr = std::unique_ptr<json::Str>;
 		using ObjPtr = std::unique_ptr<json::Obj>;
 
-		using ValueParent = std::variant<json::Null, detail::ArrPtr, detail::ObjPtr, detail::StrPtr, json::UNum, json::INum, json::Real, json::Bool>;
+		using ValueParent = detail::JsonTypes<detail::ArrPtr, detail::StrPtr, detail::ObjPtr>;
 	}
 
 	class Value : private detail::ValueParent {
@@ -505,12 +493,7 @@ namespace json {
 		}
 	};
 
-	/*
-	 *	indent empty => no linebreaks and compact structure
-	 *
-	 *	- Output json conform
-	 *	- Strings are parsed as utf16/utf32
-	 */
+	bool Serialize(const json::Value& v, json::Utf8Sink* sink, const std::string& indent = "\t", size_t bufferSize = 2048);
 	std::string Serialize(const json::Value& v, const std::string& indent = "\t");
 
 	/*

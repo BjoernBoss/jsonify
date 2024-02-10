@@ -7,233 +7,54 @@
 #include <limits>
 #include <map>
 
-struct JsonSerializeState {
+struct ValueSerializer {
 private:
-	std::string pBuffer;
-	std::string pIndent;
-	size_t pDepth = 0;
-
-public:
-	JsonSerializeState(const std::string& indent) : pIndent(indent) {}
+	json::detail::Serializer pSerializer;
 
 private:
-	std::pair<uint32_t, size_t> fReadCodepoint(const std::wstring& s, size_t off) const {
-		/* legacy: utf-8 (on decoding errors, just treat it as separate code points) */
-		if constexpr (sizeof(wchar_t) == 1) {
-			uint8_t c8 = static_cast<uint8_t>(s[off]);
-			uint32_t cp = 0;
-			size_t len = 1;
-
-			if ((c8 & 0x80) == 0x00)
-				return { c8, 0 };
-			if ((c8 & 0xe0) == 0xc0) {
-				len = 2;
-				cp = (c8 & 0x1f);
+	bool fProcess(const json::Value& val) {
+		if (val.isObj()) {
+			if (!pSerializer.begin(true))
+				return false;
+			for (const auto& entry : val.obj()) {
+				if (!pSerializer.objectKey(entry.first) || !fProcess(entry.second))
+					return false;
 			}
-			else if ((c8 & 0xf0) == 0xe0) {
-				len = 3;
-				cp = (c8 & 0x0f);
+			return pSerializer.end(true);
+		}
+		if (val.isArr()) {
+			if (!pSerializer.begin(false))
+				return false;
+			for (const auto& entry : val.arr()) {
+				if (!pSerializer.arrayValue() || !fProcess(entry))
+					return false;
 			}
-			else if ((c8 & 0xf8) == 0xf0) {
-				len = 4;
-				cp = (c8 & 0x07);
-			}
-
-			if (s.size() - off < len)
-				return { c8, 0 };
-
-			for (size_t j = 1; j < len; ++j) {
-				uint8_t n8 = static_cast<uint8_t>(s[off + j]);
-				cp = (cp << 6);
-
-				if ((n8 & 0xc0) != 0x80)
-					return { c8, 0 };
-				cp |= (n8 & 0x3f);
-			}
-			return { cp, len - 1 };
+			return pSerializer.end(false);
 		}
-
-		/* utf-16 (on decoding errors, just treat it as separate code points) */
-		else if constexpr (sizeof(wchar_t) == 2) {
-			uint32_t c32 = static_cast<uint16_t>(s[off]);
-
-			if (c32 < 0xd800 || c32 > 0xdbff || s.size() - off < 2)
-				return { c32, 0 };
-			uint32_t n32 = static_cast<uint16_t>(s[off + 1]);
-			if (n32 < 0xdc00 || n32 > 0xdfff)
-				return { c32, 0 };
-			return { 0x10000 + ((c32 & 0x03ff) << 10) | (n32 & 0x03ff), 1 };
-		}
-
-		/* utf-32 */
-		else
-			return { static_cast<uint32_t>(s[off]), 0 };
-	}
-
-private:
-	void fAddChar(char c) {
-		pBuffer.push_back(c);
-	}
-	void fAddStr(const char* c) {
-		pBuffer.append(c);
-	}
-	void fAddu16JsonValue(uint32_t val) {
-		char buffer[16] = { 0 };
-		std::snprintf(buffer, sizeof(buffer), "\\u%04" PRIx16, val);
-		fAddStr(buffer);
-	}
-	void fAddNewline(bool child) {
-		/* can never be zero, because the root is '1' */
-		size_t count = (child ? pDepth : pDepth - 1);
-
-		/* add the newline and the indentations */
-		if (pIndent.empty())
-			return;
-		pBuffer.push_back('\n');
-		for (size_t i = 0; i < count; ++i)
-			pBuffer.append(pIndent);
-	}
-	void fString(const std::wstring& s) {
-		static const std::map<wchar_t, const char*> kMapping = {
-			{L'\"', "\\\""}, {L'\\', "\\\\"}, {L'\b', "\\b"}, {L'\f', "\\f"},
-			{L'\n', "\\n"}, {L'\r', "\\r"}, {L'\t', "\\t"}
-		};
-		fAddChar('\"');
-
-		for (size_t i = 0; i < s.size(); ++i) {
-			wchar_t c = s[i];
-
-			/* handle escape sequences */
-			auto it = kMapping.find(c);
-			if (it != kMapping.end()) {
-				fAddStr(it->second);
-				continue;
-			}
-
-			/* read the next codepoint */
-			auto [cp, additional] = fReadCodepoint(s, i);
-			i += additional;
-
-			/* write the codepoint as utf-16 encoded string */
-			if (cp >= 0x10000) {
-				cp -= 0x10000;
-				fAddu16JsonValue(0xd800 + ((cp >> 10) & 0x03ff));
-				fAddu16JsonValue(0xdc00 + (cp & 0x03ff));
-			}
-
-			/* check if the character is printable and can just be added (although the json-standard allows for any
-			*	printable codepoint to be added, this would require any non-ascii code-points to be utf8-encoded) */
-			if (cp < 0x80 && std::isprint(cp))
-				fAddChar(cp);
-			else
-				fAddu16JsonValue(cp);
-		}
-
-		fAddChar('\"');
-	}
-	void fArray(const json::Arr& a) {
-		if (a.empty()) {
-			fAddStr("[]");
-			return;
-		}
-		fAddChar('[');
-
-		for (size_t i = 0; i < a.size(); i++) {
-			if (i > 0)
-				fAddChar(',');
-			fAddNewline(true);
-			fProcess(a[i]);
-		}
-
-		fAddNewline(false);
-		fAddChar(']');
-	}
-	void fObject(const json::Obj& o) {
-		if (o.empty()) {
-			fAddStr("{}");
-			return;
-		}
-		fAddChar('{');
-
-		bool content = false;
-		for (auto& val : o) {
-			if (content)
-				fAddChar(',');
-			content = true;
-
-			fAddNewline(true);
-			fString(val.first);
-
-			fAddStr(pIndent.empty() ? ":" : ": ");
-
-			fProcess(val.second);
-		}
-
-		fAddNewline(false);
-		fAddChar('}');
-	}
-	void fAddNum(const json::UNum& n) {
-		char buffer[128] = { 0 };
-		char* end = std::to_chars(buffer, std::end(buffer), n).ptr;
-		pBuffer.append(buffer, end);
-	}
-	void fAddNum(const json::INum& n) {
-		char buffer[128] = { 0 };
-		char* end = std::to_chars(buffer, std::end(buffer), n).ptr;
-		pBuffer.append(buffer, end);
-	}
-	void fAddReal(const json::Real& r) {
-		/* sanitize the value */
-		long double val = r;
-		if (!std::isfinite(val))
-			val = (val < 0 ? std::numeric_limits<long double>::lowest() : std::numeric_limits<long double>::max());
-
-		/* write the value to the string */
-		char buffer[128] = { 0 };
-		char* end = std::to_chars(buffer, std::end(buffer), val, std::chars_format::general).ptr;
-		pBuffer.append(buffer, end);
-	}
-	void fAddConst(const json::Value& v) {
-		if (v.isBoolean())
-			fAddStr(v.boolean() ? "true" : "false");
-		else
-			fAddStr("null");
-	}
-	void fProcess(const json::Value& value) {
-		++pDepth;
-
-		if (value.isObj())
-			fObject(value.obj());
-		else if (value.isArr())
-			fArray(value.arr());
-		else if (value.isStr())
-			fString(value.str());
-		else if (value.isUNum())
-			fAddNum(value.unum());
-		else if (value.isINum())
-			fAddNum(value.inum());
-		else if (value.isReal())
-			fAddReal(value.real());
-		else
-			fAddConst(value);
-		--pDepth;
+		if (val.isStr())
+			return pSerializer.addString<wchar_t>(val.str());
+		if (val.isINum())
+			return pSerializer.addPrimitive(val.inum());
+		if (val.isUNum())
+			return pSerializer.addPrimitive(val.unum());
+		if (val.isReal())
+			return pSerializer.addPrimitive(val.real());
+		if (val.isBoolean())
+			return pSerializer.addPrimitive(val.boolean());
+		if (val.isNull())
+			return pSerializer.addPrimitive(json::Null());
+		return false;
 	}
 
 public:
-	std::string process(const json::Value& value) {
-		/* cache the current locale to be able to reset it again (us-locale is necessary to write reals properly) */
-		std::string locale;
-		char* currentLocale = std::setlocale(LC_NUMERIC, 0);
-		if (currentLocale != 0)
-			locale = currentLocale;
-		std::setlocale(LC_NUMERIC, "en_US");
-
-		/* create the string and reset the locale */
-		fProcess(value);
-		std::setlocale(LC_NUMERIC, locale.empty() ? 0 : locale.c_str());
-		return pBuffer;
+	bool run(const json::Value& v, json::Utf8Sink* sink, const std::string& indent, size_t bufferSize) {
+		pSerializer.setup(indent, sink, bufferSize);
+		if (!fProcess(v))
+			return false;
+		return pSerializer.finalize();
 	}
 };
+
 struct JsonDeserializeState {
 private:
 	enum class NumState : uint8_t {
@@ -598,9 +419,14 @@ public:
 	}
 };
 
+bool json::Serialize(const json::Value& v, json::Utf8Sink* sink, const std::string& indent, size_t bufferSize) {
+	return ValueSerializer{}.run(v, sink, indent, bufferSize);
+}
 std::string json::Serialize(const json::Value& v, const std::string& indent) {
-	JsonSerializeState state(indent);
-	return state.process(v);
+	std::string out;
+	if (!json::Serialize(v, sinks::StringSink::Make(out).get(), indent))
+		out.clear();
+	return out;
 }
 
 std::pair<json::Value, bool> json::Deserialize(const std::string_view& s) {
