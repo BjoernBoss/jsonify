@@ -383,12 +383,14 @@ namespace json {
 		}
 
 		const json::Value& operator[](const std::wstring& k) const {
+			static json::Value nullValue = json::Null();
+
 			if (!std::holds_alternative<json::Obj>(*this))
 				throw JsonTypeException("json::Value is not a object");
 			const json::Obj& obj = std::get<json::Obj>(*this);
 			auto it = obj.find(k);
 			if (it == obj.end())
-				throw JsonRangeException("Key not in object");
+				return nullValue;
 			return it->second;
 		}
 		json::Value& operator[](const std::wstring& k) {
