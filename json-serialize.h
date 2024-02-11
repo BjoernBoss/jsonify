@@ -8,11 +8,17 @@
 #include <charconv>
 #include <limits>
 #include <tuple>
+#include <type_traits>
 
 namespace json {
 	class Utf8Sink {
+	public:
+		using Ptr = std::shared_ptr<json::Utf8Sink>;
+
 	protected:
 		Utf8Sink() = default;
+
+	public:
 		virtual ~Utf8Sink() = default;
 
 	public:
@@ -28,7 +34,7 @@ namespace json {
 			StringSink(std::string& out) : pOut(out) {}
 
 		public:
-			static std::unique_ptr<sinks::StringSink> Make(std::string& out) {
+			static json::Utf8Sink::Ptr Make(std::string& out) {
 				return std::make_unique<sinks::StringSink>(out);
 			}
 
@@ -46,7 +52,7 @@ namespace json {
 			StreamSink(std::ostream& out) : pOut(out) {}
 
 		public:
-			static std::unique_ptr<sinks::StreamSink> Make(std::ostream& out) {
+			static json::Utf8Sink::Ptr Make(std::ostream& out) {
 				return std::make_unique<json::sinks::StreamSink>(out);
 			}
 
@@ -67,11 +73,19 @@ namespace json {
 	 *	Serialization can continue on failed object, but will just not write anything out anymore
 	 */
 	namespace detail {
+		template <class Type>
+		concept AnyString = std::is_constructible_v<std::string_view, Type> || std::is_constructible_v<std::wstring_view, Type> ||
+			std::is_constructible_v<std::u8string_view, Type> || std::is_constructible_v<std::u16string_view, Type> ||
+			std::is_constructible_v<std::u32string_view, Type>;
+		template <class Type>
+		concept AnyPrimitive = std::is_same<std::decay_t<Type>, json::Null>::value || detail::AnyString<Type>
+			|| std::is_arithmetic_v<std::decay_t<Type>>;
+
 		class Serializer {
 		private:
 			/* buffer large enough to hold all numbers/doubles/uft16-sequences */
 			char pNumBuffer[96] = { 0 };
-			json::Utf8Sink* pSink = nullptr;
+			json::Utf8Sink::Ptr pSink;
 			std::string pIndent;
 			std::string pBuffer;
 			size_t pOffset = 0;
@@ -242,9 +256,22 @@ namespace json {
 
 				return fWrite('\"');
 			}
+			template <class SType>
+			bool fAddString(SType&& s) {
+				if constexpr (std::is_constructible_v<std::string_view, SType>)
+					return fWriteString<char>(s);
+				if constexpr (std::is_constructible_v<std::wstring_view, SType>)
+					return fWriteString<wchar_t>(s);
+				if constexpr (std::is_constructible_v<std::u8string_view, SType>)
+					return fWriteString<char8_t>(s);
+				if constexpr (std::is_constructible_v<std::u16string_view, SType>)
+					return fWriteString<char16_t>(s);
+				if constexpr (std::is_constructible_v<std::u32string_view, SType>)
+					return fWriteString<char32_t>(s);
+			}
 
 		public:
-			void setup(const std::string& indent, json::Utf8Sink* sink, size_t bufferSize) {
+			void setup(const std::string& indent, const json::Utf8Sink::Ptr& sink, size_t bufferSize) {
 				pIndent = indent;
 				pSink = sink;
 				pBuffer.resize(std::max<size_t>(1, bufferSize));
@@ -262,61 +289,47 @@ namespace json {
 			}
 
 		public:
-			bool addString(const std::string_view& s) {
-				return fWriteString<char>(s);
-			}
-			bool addString(const std::wstring_view& s) {
-				return fWriteString<wchar_t>(s);
-			}
-			bool addPrimitive(const json::Bool& b) {
-				return fWrite(b ? "true" : "false");
-			}
-			bool addPrimitive(const json::Null&) {
-				return fWrite("null");
-			}
-			bool addPrimitive(const json::INum& n) {
-				/* will at all times fit into the buffer and can be written without checking for errors */
-				char* end = std::to_chars(pNumBuffer, std::end(pNumBuffer), n).ptr;
-				return fWrite({ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
-			}
-			bool addPrimitive(const json::UNum& n) {
-				/* will at all times fit into the buffer and can be written without checking for errors */
-				char* end = std::to_chars(pNumBuffer, std::end(pNumBuffer), n).ptr;
-				return fWrite({ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
-			}
-			bool addPrimitive(const json::Real& r) {
-				/* limit the double to ensure it will not be formatted to 'inf'/'NaN'/... */
-				long double val = r;
-				if (!std::isfinite(val))
-					val = (val < 0 ? std::numeric_limits<long double>::lowest() : std::numeric_limits<long double>::max());
+			template <detail::AnyPrimitive Type>
+			bool addPrimitive(Type&& v) {
+				if constexpr (std::is_same_v<std::decay_t<Type>, json::Bool>)
+					return fWrite(v ? "true" : "false");
+				else if constexpr (std::is_same_v<std::decay_t<Type>, json::Null>)
+					return fWrite("null");
+				else if constexpr (std::is_floating_point_v<std::decay_t<Type>>) {
+					using ActType = std::decay_t<Type>;
 
-				/* will at all times fit into the buffer and can be written without checking for errors (to_chars is locale independent,
-				*	value can just be written without issues regarding non-json-conformant characters, such as ',' as decimal separator) */
-				char* end = std::to_chars(pNumBuffer, std::end(pNumBuffer), val, std::chars_format::general).ptr;
-				return fWrite({ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
+					/* limit the double to ensure it will not be formatted to 'inf'/'NaN'/... */
+					ActType val = v;
+					if (!std::isfinite(val))
+						val = (val < 0 ? std::numeric_limits<ActType>::lowest() : std::numeric_limits<ActType>::max());
+
+					/* will at all times fit into the buffer and can be written without checking for errors (to_chars is locale independent,
+					*	value can just be written without issues regarding non-json-conformant characters, such as ',' as decimal separator) */
+					char* end = std::to_chars(pNumBuffer, std::end(pNumBuffer), val, std::chars_format::general).ptr;
+					return fWrite({ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
+				}
+				else if constexpr (std::is_integral_v<std::decay_t<Type>>) {
+					/* will at all times fit into the buffer and can be written without checking for errors */
+					char* end = std::to_chars(pNumBuffer, std::end(pNumBuffer), v).ptr;
+					return fWrite({ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
+				}
+				else if constexpr (detail::AnyString<Type>)
+					return fAddString<Type>(v);
 			}
 			bool begin(bool obj) {
 				++pDepth;
 				pAlreadyHasValue = false;
 				return fWrite(obj ? '{' : L'[');
 			}
-			bool objectKey(const std::string_view& k) {
+			template <detail::AnyString Type>
+			bool objectKey(Type&& s) {
 				/* check if a separator needs to be added */
 				if (pAlreadyHasValue && !fWrite(','))
 					return false;
 				pAlreadyHasValue = true;
 
-				/* add the newline and the key and the separator */
-				return (fWriteNewline() && fWriteString<char>(k) && fWrite(pIndent.empty() ? ":" : ": "));
-			}
-			bool objectKey(const std::wstring_view& k) {
-				/* check if a separator needs to be added */
-				if (pAlreadyHasValue && !fWrite(','))
-					return false;
-				pAlreadyHasValue = true;
-
-				/* add the newline and the key and the separator */
-				return (fWriteNewline() && fWriteString<wchar_t>(k) && fWrite(pIndent.empty() ? ":" : ": "));
+				/* add the newline, key, and the separator to the upcoming value */
+				return (fWriteNewline() && fAddString<Type>(s) && fWrite(pIndent.empty() ? ":" : ": "));
 			}
 			bool arrayValue() {
 				/* check if a separator needs to be added */

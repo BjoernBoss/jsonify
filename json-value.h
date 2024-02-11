@@ -493,7 +493,7 @@ namespace json {
 		}
 	};
 
-	bool Serialize(const json::Value& v, json::Utf8Sink* sink, const std::string& indent = "\t", size_t bufferSize = 2048);
+	bool Serialize(const json::Value& v, const json::Utf8Sink::Ptr& sink, const std::string& indent = "\t", size_t bufferSize = 2048);
 	std::string Serialize(const json::Value& v, const std::string& indent = "\t");
 
 	/*

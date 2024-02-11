@@ -32,7 +32,7 @@ private:
 			return pSerializer.end(false);
 		}
 		if (val.isStr())
-			return pSerializer.addString(val.str());
+			return pSerializer.addPrimitive(val.str());
 		if (val.isINum())
 			return pSerializer.addPrimitive(val.inum());
 		if (val.isUNum())
@@ -47,7 +47,7 @@ private:
 	}
 
 public:
-	bool run(const json::Value& v, json::Utf8Sink* sink, const std::string& indent, size_t bufferSize) {
+	bool run(const json::Value& v, const json::Utf8Sink::Ptr& sink, const std::string& indent, size_t bufferSize) {
 		pSerializer.setup(indent, sink, bufferSize);
 		if (!fProcess(v))
 			return false;
@@ -419,12 +419,12 @@ public:
 	}
 };
 
-bool json::Serialize(const json::Value& v, json::Utf8Sink* sink, const std::string& indent, size_t bufferSize) {
+bool json::Serialize(const json::Value& v, const json::Utf8Sink::Ptr& sink, const std::string& indent, size_t bufferSize) {
 	return ValueSerializer{}.run(v, sink, indent, bufferSize);
 }
 std::string json::Serialize(const json::Value& v, const std::string& indent) {
 	std::string out;
-	if (!json::Serialize(v, sinks::StringSink::Make(out).get(), indent))
+	if (!json::Serialize(v, sinks::StringSink::Make(out), indent))
 		out.clear();
 	return out;
 }
