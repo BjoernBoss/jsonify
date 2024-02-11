@@ -32,7 +32,7 @@ private:
 			return pSerializer.end(false);
 		}
 		if (val.isStr())
-			return pSerializer.addString<wchar_t>(val.str());
+			return pSerializer.addString(val.str());
 		if (val.isINum())
 			return pSerializer.addPrimitive(val.inum());
 		if (val.isUNum())
@@ -51,7 +51,7 @@ public:
 		pSerializer.setup(indent, sink, bufferSize);
 		if (!fProcess(v))
 			return false;
-		return pSerializer.finalize();
+		return pSerializer.flush();
 	}
 };
 

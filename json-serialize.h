@@ -8,7 +8,6 @@
 #include <charconv>
 #include <limits>
 #include <tuple>
-#include <type_traits>
 
 namespace json {
 	class Utf8Sink {
@@ -65,13 +64,14 @@ namespace json {
 	 *	Strings are parsed as utf8/utf16/utf32 (depending on size of type)
 	 *	Output is json conform
 	 *	Fails if flush fails, otherwise succeeeds
+	 *	Serialization can continue on failed object, but will just not write anything out anymore
 	 */
 	namespace detail {
 		class Serializer {
 		private:
 			/* buffer large enough to hold all numbers/doubles/uft16-sequences */
 			char pNumBuffer[96] = { 0 };
-			json::Utf8Sink* pSink = 0;
+			json::Utf8Sink* pSink = nullptr;
 			std::string pIndent;
 			std::string pBuffer;
 			size_t pOffset = 0;
@@ -83,12 +83,12 @@ namespace json {
 				if (pSink->consume(std::string_view{ pBuffer.data(), pOffset }))
 					pOffset = 0;
 				else
-					pSink = 0;
-				return (pSink != 0);
+					pSink = nullptr;
+				return (pSink != nullptr);
 			}
 			bool fWrite(const std::string_view& data) {
 				/* check if the flushing has already failed */
-				if (pSink == 0)
+				if (pSink == nullptr)
 					return false;
 
 				/* write the data to the buffer and check if it needs to be flushed */
@@ -252,14 +252,21 @@ namespace json {
 				pDepth = 0;
 				pAlreadyHasValue = false;
 			}
-			bool finalize() {
+			bool flush() {
+				if (pSink == nullptr || pOffset == 0)
+					return (pSink != nullptr);
 				return fFlush();
+			}
+			bool valid() const {
+				return (pSink != nullptr);
 			}
 
 		public:
-			template <class CType>
-			bool addString(const std::basic_string_view<CType>& s) {
-				return fWriteString<CType>(s);
+			bool addString(const std::string_view& s) {
+				return fWriteString<char>(s);
+			}
+			bool addString(const std::wstring_view& s) {
+				return fWriteString<wchar_t>(s);
 			}
 			bool addPrimitive(const json::Bool& b) {
 				return fWrite(b ? "true" : "false");
@@ -293,6 +300,15 @@ namespace json {
 				pAlreadyHasValue = false;
 				return fWrite(obj ? '{' : L'[');
 			}
+			bool objectKey(const std::string_view& k) {
+				/* check if a separator needs to be added */
+				if (pAlreadyHasValue && !fWrite(','))
+					return false;
+				pAlreadyHasValue = true;
+
+				/* add the newline and the key and the separator */
+				return (fWriteNewline() && fWriteString<char>(k) && fWrite(pIndent.empty() ? ":" : ": "));
+			}
 			bool objectKey(const std::wstring_view& k) {
 				/* check if a separator needs to be added */
 				if (pAlreadyHasValue && !fWrite(','))
@@ -300,7 +316,7 @@ namespace json {
 				pAlreadyHasValue = true;
 
 				/* add the newline and the key and the separator */
-				return (fWriteNewline() && fWriteString(k) && fWrite(pIndent.empty() ? ":" : ": "));
+				return (fWriteNewline() && fWriteString<wchar_t>(k) && fWrite(pIndent.empty() ? ":" : ": "));
 			}
 			bool arrayValue() {
 				/* check if a separator needs to be added */
