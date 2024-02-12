@@ -55,27 +55,12 @@ namespace json {
 
 		public:
 			BuildInstance() = default;
-			BuildInstance(const detail::BuildInstance<ChType>&) = delete;
-			BuildInstance(detail::BuildInstance<ChType>&& b) noexcept {
-				pShared = std::move(b.pShared);
-				pStamp = b.pStamp;
-				pState = b.pState;
-				b.pState = State::closed;
-			}
-			detail::BuildInstance<ChType>& operator=(const detail::BuildInstance<ChType>&) = delete;
-			detail::BuildInstance<ChType>& operator=(detail::BuildInstance<ChType>&& b) noexcept {
-				pState = b.pState;
-				b.pState = State::closed;
-				std::swap(pShared, b.pShared);
-				std::swap(pState, b.pState);
-				std::swap(pStamp, b.pStamp);
-				return *this;
-			}
 			~BuildInstance() {
-				if (pState == State::closed)
+				/* only arrays/objects are closed at destruction, values are volatile */
+				if (pState == State::closed || pState == State::value)
 					return;
 				fEnsureCapture();
-				fClose(true);
+				fClose();
 			}
 
 		private:
@@ -97,10 +82,10 @@ namespace json {
 
 				/* close all builder until this is the next active builder */
 				while (pShared->active.top() != this)
-					valid = (pShared->active.top()->fClose(true) && valid);
+					valid = (pShared->active.top()->fClose() && valid);
 				return valid;
 			}
-			bool fClose(bool unsolicited) {
+			bool fClose() {
 				bool valid = true;
 
 				/* check if this is not a primitive value, in which case it can just be closed normally */
@@ -109,15 +94,12 @@ namespace json {
 					pShared->active.pop();
 				}
 
-				/* check if this is the active value, in which case it can just be replaced by a null
-				*	(unless it has was a solicited close, for example because the value was written) */
-				else if (pStamp == pShared->valueStamp && pShared->awaitingValue) {
+				/* check if this is the active value, in which case the awaiting state can
+				*	be cleared as the value must have been written or passed on */
+				else if (pStamp == pShared->valueStamp && pShared->awaitingValue)
 					pShared->awaitingValue = false;
-					if (unsolicited)
-						valid = pShared->serializer.addPrimitive(json::Null());
-				}
 
-				/* mark this object as burnt and check if this was the last value, in which case the serializer can be flushed
+				/* mark this object as clsoe and check if this was the last value, in which case the serializer can be flushed
 				*	(no need to check for an awaiting value, as it was either this object, or this capture nulled the value) */
 				pState = State::closed;
 				if (pShared->active.empty()) {
@@ -215,7 +197,7 @@ namespace json {
 				pShared->awaitingValue = true;
 			}
 			bool close() {
-				return fClose(false);
+				return fClose();
 			}
 
 		public:
@@ -225,6 +207,8 @@ namespace json {
 		};
 	}
 
+	/* value is volatile and can be passed around, and it will be closed on close call,
+	*	when a value is written/prepared, or when a parent object captures the builder */
 	template <stc::IsChar ChType>
 	class BuildValue {
 		friend json::BuildValue<ChType> json::Build<ChType>(const json::SinkPtr<ChType>&, const std::string&, size_t);
@@ -237,9 +221,9 @@ namespace json {
 		BuildValue() = default;
 
 	public:
-		BuildValue(const json::BuildValue<ChType>&) = delete;
+		BuildValue(const json::BuildValue<ChType>&) = default;
 		BuildValue(json::BuildValue<ChType>&&) = default;
-		json::BuildValue<ChType>& operator=(const json::BuildValue<ChType>&) = delete;
+		json::BuildValue<ChType>& operator=(const json::BuildValue<ChType>&) = default;
 		json::BuildValue<ChType>& operator=(json::BuildValue<ChType>&&) = default;
 		~BuildValue() = default;
 
@@ -290,6 +274,7 @@ namespace json {
 		}
 	};
 
+	/* object will be closed once close is called, the array is destructed, or a parent object captures the builder */
 	template <stc::IsChar ChType>
 	class BuildObject {
 		friend class json::BuildValue<ChType>;
@@ -319,6 +304,11 @@ namespace json {
 		}
 		bool error() const {
 			return pBuilder->error();
+		}
+
+	public:
+		json::BuildValue<ChType> operator[](detail::SerializeString auto&& k) {
+			return BuildObject<ChType>::addVal(k);
 		}
 
 	public:
@@ -366,6 +356,7 @@ namespace json {
 		}
 	};
 
+	/* array will be closed once close is called, the array is destructed, or a parent object captures the builder */
 	template <stc::IsChar ChType>
 	class BuildArray {
 		friend class json::BuildValue<ChType>;
