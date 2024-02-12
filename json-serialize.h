@@ -8,56 +8,61 @@
 #include <charconv>
 #include <limits>
 #include <tuple>
+#include <concepts>
 #include <type_traits>
 
 namespace json {
-	class Utf8Sink {
-	public:
-		using Ptr = std::shared_ptr<json::Utf8Sink>;
-
+	template <stc::IsChar ChType>
+	class Sink {
 	protected:
-		Utf8Sink() = default;
+		Sink() = default;
 
 	public:
-		virtual ~Utf8Sink() = default;
+		virtual ~Sink() = default;
 
 	public:
-		virtual bool consume(const std::string_view& data) = 0;
+		virtual bool consume(const std::basic_string_view<ChType>& data) = 0;
 	};
 
+	template <stc::IsChar ChType>
+	using SinkPtr = std::shared_ptr<json::Sink<ChType>>;
+
 	namespace sinks {
-		class StringSink final : public json::Utf8Sink {
+		template <stc::IsChar ChType>
+		class StringSink final : public json::Sink<ChType> {
 		private:
-			std::string& pOut;
+			std::basic_string<ChType>& pOut;
 
 		public:
-			StringSink(std::string& out) : pOut(out) {}
+			StringSink(std::basic_string<ChType>& out) : pOut(out) {}
 
 		public:
-			static json::Utf8Sink::Ptr Make(std::string& out) {
-				return std::make_unique<sinks::StringSink>(out);
+			static json::SinkPtr<ChType> Make(std::basic_string<ChType>& out) {
+				return std::make_unique<sinks::StringSink<ChType>>(out);
 			}
 
 		public:
-			bool consume(const std::string_view& data) final {
+			bool consume(const std::basic_string_view<ChType>& data) final {
 				pOut.append(data);
 				return true;
 			}
 		};
-		class StreamSink final : public json::Utf8Sink {
+
+		template <stc::IsChar ChType>
+		class StreamSink final : public json::Sink<ChType> {
 		private:
-			std::ostream& pOut;
+			std::basic_ostream<ChType>& pOut;
 
 		public:
-			StreamSink(std::ostream& out) : pOut(out) {}
+			StreamSink(std::basic_ostream<ChType>& out) : pOut(out) {}
 
 		public:
-			static json::Utf8Sink::Ptr Make(std::ostream& out) {
-				return std::make_unique<json::sinks::StreamSink>(out);
+			static json::SinkPtr<ChType> Make(std::basic_ostream<ChType>& out) {
+				return std::make_unique<json::sinks::StreamSink<ChType>>(out);
 			}
 
 		public:
-			bool consume(const std::string_view& data) final {
+			bool consume(const std::basic_string_view<ChType>& data) final {
 				pOut.write(data.data(), data.size());
 				return pOut.good();
 			}
@@ -67,54 +72,54 @@ namespace json {
 	/*
 	 *	Indent: Indentation sequence to be used (if empty, compact output)
 	 *	BufferSize: Number of bytes buffered before flushing to the sink
-	 *	Strings are parsed as utf8/utf16/utf32 (depending on size of type)
 	 *	Output is json conform
 	 *	Fails if flush fails, otherwise succeeeds
 	 *	Serialization can continue on failed object, but will just not write anything out anymore
 	 */
 	namespace detail {
 		template <class Type>
-		concept AnyString = std::is_constructible_v<std::string_view, Type> || std::is_constructible_v<std::wstring_view, Type> ||
-			std::is_constructible_v<std::u8string_view, Type> || std::is_constructible_v<std::u16string_view, Type> ||
-			std::is_constructible_v<std::u32string_view, Type>;
+		concept SerializeString = json::IsString<Type>;
 		template <class Type>
-		concept AnyPrimitive = std::is_same<std::decay_t<Type>, json::Null>::value || detail::AnyString<Type>
-			|| std::is_arithmetic_v<std::decay_t<Type>>;
+		concept SerializePrimitive = json::IsString<Type> || json::IsPrimitive<Type>;
 
+		template <stc::IsChar ChType>
 		class Serializer {
 		private:
 			/* buffer large enough to hold all numbers/doubles/uft16-sequences */
 			char pNumBuffer[96] = { 0 };
-			json::Utf8Sink::Ptr pSink;
+			json::SinkPtr<ChType> pSink;
+			stc::String<ChType> pBuffer;
 			std::string pIndent;
-			std::string pBuffer;
 			size_t pOffset = 0;
 			size_t pDepth = 0;
 			bool pAlreadyHasValue = false;
 
 		private:
 			bool fFlush() {
-				if (pSink->consume(std::string_view{ pBuffer.data(), pOffset }))
+				if (pSink->consume(stc::View<ChType>{ pBuffer.data(), pOffset }))
 					pOffset = 0;
 				else
 					pSink = nullptr;
 				return (pSink != nullptr);
 			}
-			bool fWrite(const std::string_view& data) {
+			bool fWrite(stc::IsString auto&& data) {
 				/* check if the flushing has already failed */
 				if (pSink == nullptr)
 					return false;
 
 				/* write the data to the buffer and check if it needs to be flushed */
-				size_t off = 0;
-				while (off < data.size()) {
-					size_t count = std::min<size_t>(data.size() - off, pBuffer.size() - pOffset);
-					std::copy(data.begin() + off, data.begin() + off + count, pBuffer.begin() + pOffset);
-					off += count;
+				stc::ViewFromStr<decltype(data)> view{ data };
+				while (!view.empty()) {
+					/* transcode the next codepoint (invalid codepoints will just not show up in the output) */
+					auto [out, len] = stc::Transcode<ChType>(view);
+					view = view.substr(len);
 
-					/* check if the buffer needs to be flushed */
-					if ((pOffset += count) >= pBuffer.size() && !fFlush())
+					/* check if the data can be appended to the buffer, or if it needs to be flushed (buffer-size is
+					*	ensured to be large enough to fit at least one transcoded character of any possible length) */
+					if (pBuffer.size() - pOffset < out.size() && !fFlush())
 						return false;
+					std::copy(out.begin(), out.end(), pBuffer.begin() + pOffset);
+					pOffset += out.size();
 				}
 				return true;
 			}
@@ -139,142 +144,67 @@ namespace json {
 				pNumBuffer[1] = 'u';
 				for (size_t i = 0; i < 4; ++i)
 					pNumBuffer[2 + i] = "0123456789abcdef"[(val >> (12 - (i * 4))) & 0x0f];
-				return fWrite({ pNumBuffer, 6 });
+				return fWrite(std::string_view{ pNumBuffer, 6 });
 			}
-			template <class CType>
-			std::tuple<uint32_t, size_t, bool> fFetchCodePoint(const std::basic_string_view<CType>& s, size_t off) const {
-				/* on decoding errors: just return first decoded value */
-
-				/* utf-8 */
-				if constexpr (sizeof(CType) == 1) {
-					uint8_t c8 = static_cast<uint8_t>(s[off]);
-					uint32_t cp = 0;
-					size_t len = 1;
-
-					if ((c8 & 0x80) == 0x00)
-						return { c8, 0, true };
-					if ((c8 & 0xe0) == 0xc0) {
-						len = 2;
-						cp = (c8 & 0x1f);
-					}
-					else if ((c8 & 0xf0) == 0xe0) {
-						len = 3;
-						cp = (c8 & 0x0f);
-					}
-					else if ((c8 & 0xf8) == 0xf0) {
-						len = 4;
-						cp = (c8 & 0x07);
-					}
-
-					if (s.size() - off < len)
-						return { c8, 0, false };
-
-					for (size_t j = 1; j < len; ++j) {
-						uint8_t n8 = static_cast<uint8_t>(s[off + j]);
-						cp = (cp << 6);
-
-						if ((n8 & 0xc0) != 0x80)
-							return { c8, 0, false };
-						cp |= (n8 & 0x3f);
-					}
-					return { cp, len - 1, true };
-				}
-
-				/* utf-16 */
-				else if constexpr (sizeof(CType) == 2) {
-					uint32_t c32 = static_cast<uint16_t>(s[off]);
-
-					if (c32 < 0xd800 || c32 > 0xdfff)
-						return { c32, 0, true };
-
-					if (c32 > 0xdbff || s.size() - off < 2)
-						return { c32, 0, false };
-
-					uint32_t n32 = static_cast<uint16_t>(s[off + 1]);
-					if (n32 < 0xdc00 || n32 > 0xdfff)
-						return { c32, 0, false };
-					return { 0x10000 + ((c32 & 0x03ff) << 10) | (n32 & 0x03ff), 1, true };
-				}
-
-				/* utf-32 */
-				else
-					return { static_cast<uint32_t>(s[off]), 0, true };
-			}
-			template <class CType>
-			bool fWriteString(const std::basic_string_view<CType>& s) {
+			bool fWriteString(stc::IsString auto&& s) {
 				if (!fWrite('\"'))
 					return false;
+				stc::ViewFromStr<decltype(s)> view{ s };
 
-				/* add the separate codepoints of the string to the output */
-				for (size_t i = 0; i < s.size(); ++i) {
-					CType c = s[i];
+				/* decode the codepoints and handle all relevant escaping, as required by the json-standard
+				*	(although standard only requires view characters to be encoded as \u, only ascii characters
+				*	will not be printed as \u strings; invalid codepoints will be replaced by default error-char) */
+				while (!view.empty()) {
+					/* transcode the next character to utf-16 */
+					auto [out, len] = stc::Transcode<char16_t>(view);
+					view = view.substr(len);
 
-					/* handle defined escape sequences */
-					char escape = 0;
+					/* check if there are 0 (error) or 2 (maximum) chars, in which case they can immediately be written out as \u-encoded sequences */
+					if (out.size() != 1) {
+						for (char16_t c : out) {
+							if (!fWriteJsonU16(static_cast<uint16_t>(c)))
+								return false;
+						}
+						continue;
+					}
+
+					/* check if its an escape sequence */
+					uint16_t c = static_cast<uint16_t>(out[0]);
 					if (c == '\b')
-						escape = 'b';
+						c = 'b';
 					else if (c == '\f')
-						escape = 'f';
+						c = 'f';
 					else if (c == '\n')
-						escape = 'n';
+						c = 'n';
 					else if (c == '\r')
-						escape = 'n';
+						c = 'n';
 					else if (c == '\t')
-						escape = 't';
-					else if (c == '\\' || c == '\"')
-						escape = static_cast<char>(c);
-					if (escape != '\0') {
-						if (!fWrite('\\') || !fWrite(escape))
-							return false;
-						continue;
+						c = 't';
+					else if (c != '\\' && c != '\"') {
+						/* add the character (only clear if its printable and valid ascii) */
+						if ((std::isprint(c) && c < 0x80) ? fWrite(static_cast<char>(c)) : fWriteJsonU16(c))
+							continue;
+						return false;
 					}
 
-					/* read the next codepoint (invalid codepoints will just be skipped) */
-					auto [cp, additional, valid] = fFetchCodePoint<CType>(s, i);
-					if (!valid)
-						continue;
-					i += additional;
-
-					/* check if the character is printable and can just be added (although the json-standard allows for any
-					*	printable codepoint to be added, this would require any non-ascii code-points to be utf8-encoded) */
-					if (std::isprint(cp) && cp < 0x80) {
-						if (!fWrite(static_cast<char>(cp)))
-							return false;
-						continue;
-					}
-
-					/* check if the value must be written as a surrogate pair (as too large for single utf-16 char) */
-					if (cp >= 0x10000) {
-						cp -= 0x10000;
-						if (!fWriteJsonU16(0xd800 + ((cp >> 10) & 0x03ff)))
-							return false;
-						cp = (0xdc00 + (cp & 0x03ff));
-					}
-					if (!fWriteJsonU16(cp))
+					/* the character must be escaped */
+					if (!fWrite('\\') || !fWrite(static_cast<char>(c)))
 						return false;
 				}
-
 				return fWrite('\"');
-			}
-			template <class SType>
-			bool fAddString(SType&& s) {
-				if constexpr (std::is_constructible_v<std::string_view, SType>)
-					return fWriteString<char>(s);
-				if constexpr (std::is_constructible_v<std::wstring_view, SType>)
-					return fWriteString<wchar_t>(s);
-				if constexpr (std::is_constructible_v<std::u8string_view, SType>)
-					return fWriteString<char8_t>(s);
-				if constexpr (std::is_constructible_v<std::u16string_view, SType>)
-					return fWriteString<char16_t>(s);
-				if constexpr (std::is_constructible_v<std::u32string_view, SType>)
-					return fWriteString<char32_t>(s);
 			}
 
 		public:
-			void setup(const std::string& indent, const json::Utf8Sink::Ptr& sink, size_t bufferSize) {
-				pIndent = indent;
+			void setup(const std::string& indent, const json::SinkPtr<ChType>& sink, size_t bufferSize) {
+				/* ensure whitespace only consists of tabs/spaces */
+				pIndent.clear();
+				for (char c : indent) {
+					if (c == ' ' || c == '\t')
+						pIndent.push_back(c);
+				}
+
 				pSink = sink;
-				pBuffer.resize(std::max<size_t>(1, bufferSize));
+				pBuffer.resize(std::max<size_t>({ 1, stc::MaxEncodeLength, bufferSize }));
 				pOffset = 0;
 				pDepth = 0;
 				pAlreadyHasValue = false;
@@ -289,47 +219,45 @@ namespace json {
 			}
 
 		public:
-			template <detail::AnyPrimitive Type>
-			bool addPrimitive(Type&& v) {
-				if constexpr (std::is_same_v<std::decay_t<Type>, json::Bool>)
-					return fWrite(v ? "true" : "false");
-				else if constexpr (std::is_same_v<std::decay_t<Type>, json::Null>)
-					return fWrite("null");
-				else if constexpr (std::is_floating_point_v<std::decay_t<Type>>) {
-					using ActType = std::decay_t<Type>;
+			bool addPrimitive(detail::SerializePrimitive auto&& v) {
+				using VType = std::decay_t<decltype(v)>;
 
+				if constexpr (std::same_as<VType, json::Bool>)
+					return fWrite(v ? "true" : "false");
+				else if constexpr (std::same_as<VType, json::Null>)
+					return fWrite("null");
+				else if constexpr (std::floating_point<VType>) {
 					/* limit the double to ensure it will not be formatted to 'inf'/'NaN'/... */
-					ActType val = v;
+					VType val = v;
 					if (!std::isfinite(val))
-						val = (val < 0 ? std::numeric_limits<ActType>::lowest() : std::numeric_limits<ActType>::max());
+						val = (val < 0 ? std::numeric_limits<VType>::lowest() : std::numeric_limits<VType>::max());
 
 					/* will at all times fit into the buffer and can be written without checking for errors (to_chars is locale independent,
 					*	value can just be written without issues regarding non-json-conformant characters, such as ',' as decimal separator) */
 					char* end = std::to_chars(pNumBuffer, std::end(pNumBuffer), val, std::chars_format::general).ptr;
-					return fWrite({ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
+					return fWrite(std::string_view{ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
 				}
-				else if constexpr (std::is_integral_v<std::decay_t<Type>>) {
+				else if constexpr (std::integral<VType>) {
 					/* will at all times fit into the buffer and can be written without checking for errors */
 					char* end = std::to_chars(pNumBuffer, std::end(pNumBuffer), v).ptr;
-					return fWrite({ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
+					return fWrite(std::string_view{ pNumBuffer, static_cast<size_t>(end - pNumBuffer) });
 				}
-				else if constexpr (detail::AnyString<Type>)
-					return fAddString<Type>(v);
+				else if constexpr (detail::SerializeString<VType>)
+					return fWriteString(v);
 			}
 			bool begin(bool obj) {
 				++pDepth;
 				pAlreadyHasValue = false;
 				return fWrite(obj ? '{' : L'[');
 			}
-			template <detail::AnyString Type>
-			bool objectKey(Type&& s) {
+			bool objectKey(detail::SerializeString auto&& s) {
 				/* check if a separator needs to be added */
 				if (pAlreadyHasValue && !fWrite(','))
 					return false;
 				pAlreadyHasValue = true;
 
 				/* add the newline, key, and the separator to the upcoming value */
-				return (fWriteNewline() && fAddString<Type>(s) && fWrite(pIndent.empty() ? ":" : ": "));
+				return (fWriteNewline() && fWriteString(s) && fWrite(pIndent.empty() ? ":" : ": "));
 			}
 			bool arrayValue() {
 				/* check if a separator needs to be added */
@@ -353,5 +281,88 @@ namespace json {
 				return fWrite(obj ? '}' : ']');
 			}
 		};
+
+		template <stc::IsChar ChType>
+		class JsonSerializer {
+		private:
+			detail::Serializer<ChType> pSerializer;
+
+		private:
+			bool fProcess(json::IsPrimitive auto&& v) {
+				return pSerializer.addPrimitive(v);
+			}
+			bool fProcess(json::IsString auto&& v) {
+				return pSerializer.addPrimitive(v);
+			}
+			bool fProcess(json::IsArray auto& v) {
+				if (!pSerializer.begin(false))
+					return false;
+				for (const auto& entry : v) {
+					if (!pSerializer.arrayValue() || !fProcess(entry))
+						return false;
+				}
+				return pSerializer.end(false);
+			}
+			bool fProcess(json::IsObject auto& v) {
+				if (!pSerializer.begin(true))
+					return false;
+				for (const auto& entry : v) {
+					if (!pSerializer.objectKey(entry.first) || !fProcess(entry.second))
+						return false;
+				}
+				return pSerializer.end(true);
+			}
+			bool fProcess(json::IsValue auto&& v) {
+				if (v.isArr())
+					return fProcess(v.arr());
+				if (v.isObj())
+					return fProcess(v.obj());
+				if (v.isStr())
+					return fProcess(v.str());
+				if (v.isINum())
+					return fProcess(v.inum());
+				if (v.isUNum())
+					return fProcess(v.unum());
+				if (v.isReal())
+					return fProcess(v.real());
+				if (v.isBoolean())
+					return fProcess(v.boolean());
+				return fProcess(json::Null());
+			}
+
+		public:
+			bool run(json::IsJson auto&& v, const json::SinkPtr<ChType>& sink, const std::string& indent, size_t bufferSize) {
+				pSerializer.setup(indent, sink, bufferSize);
+				if (!fProcess(v))
+					return false;
+				return pSerializer.flush();
+			}
+		};
+	}
+
+	/* serialize json-like object to the sink */
+	template <stc::IsChar ChType>
+	bool Serialize(json::IsJson auto&& v, const json::SinkPtr<ChType>& sink, const std::string& indent = "\t", size_t bufferSize = 2048) {
+		return detail::JsonSerializer<ChType>{}.run(v, sink, indent, bufferSize);
+	}
+
+	/* convenience wrappers */
+	std::string ToString(json::IsJson auto&& v, const std::string& indent = "\t") {
+		std::string out;
+		if (!json::Serialize(v, sinks::StringSink<char>::Make(out), indent))
+			out.clear();
+		return out;
+	}
+	std::wstring ToWideString(json::IsJson auto&& v, const std::string& indent = "\t") {
+		std::wstring out;
+		if (!json::Serialize(v, sinks::StringSink<wchar_t>::Make(out), indent))
+			out.clear();
+		return out;
+	}
+	bool ToStream(json::IsJson auto&& v, std::ostream& stream, const std::string& indent = "\t") {
+		return json::Serialize(v, sinks::StreamSink<char>::Make(stream), indent);
+	}
+	bool ToWideStream(json::IsJson auto&& v, std::wostream& stream, const std::string& indent = "\t") {
+		return json::Serialize(v, sinks::StreamSink<wchar_t>::Make(stream), indent);
 	}
 }

@@ -493,9 +493,6 @@ namespace json {
 		}
 	};
 
-	bool Serialize(const json::Value& v, const json::Utf8Sink::Ptr& sink, const std::string& indent = "\t", size_t bufferSize = 2048);
-	std::string Serialize(const json::Value& v, const std::string& indent = "\t");
-
 	/*
 	 *	- Input expected as utf8
 	 *	- Escape sequence [u] treated as utf16 encoding and transcoded to uft16/utf32

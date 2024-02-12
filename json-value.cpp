@@ -7,54 +7,6 @@
 #include <limits>
 #include <map>
 
-struct ValueSerializer {
-private:
-	json::detail::Serializer pSerializer;
-
-private:
-	bool fProcess(const json::Value& val) {
-		if (val.isObj()) {
-			if (!pSerializer.begin(true))
-				return false;
-			for (const auto& entry : val.obj()) {
-				if (!pSerializer.objectKey(entry.first) || !fProcess(entry.second))
-					return false;
-			}
-			return pSerializer.end(true);
-		}
-		if (val.isArr()) {
-			if (!pSerializer.begin(false))
-				return false;
-			for (const auto& entry : val.arr()) {
-				if (!pSerializer.arrayValue() || !fProcess(entry))
-					return false;
-			}
-			return pSerializer.end(false);
-		}
-		if (val.isStr())
-			return pSerializer.addPrimitive(val.str());
-		if (val.isINum())
-			return pSerializer.addPrimitive(val.inum());
-		if (val.isUNum())
-			return pSerializer.addPrimitive(val.unum());
-		if (val.isReal())
-			return pSerializer.addPrimitive(val.real());
-		if (val.isBoolean())
-			return pSerializer.addPrimitive(val.boolean());
-		if (val.isNull())
-			return pSerializer.addPrimitive(json::Null());
-		return false;
-	}
-
-public:
-	bool run(const json::Value& v, const json::Utf8Sink::Ptr& sink, const std::string& indent, size_t bufferSize) {
-		pSerializer.setup(indent, sink, bufferSize);
-		if (!fProcess(v))
-			return false;
-		return pSerializer.flush();
-	}
-};
-
 struct JsonDeserializeState {
 private:
 	enum class NumState : uint8_t {
@@ -418,16 +370,6 @@ public:
 		return result;
 	}
 };
-
-bool json::Serialize(const json::Value& v, const json::Utf8Sink::Ptr& sink, const std::string& indent, size_t bufferSize) {
-	return ValueSerializer{}.run(v, sink, indent, bufferSize);
-}
-std::string json::Serialize(const json::Value& v, const std::string& indent) {
-	std::string out;
-	if (!json::Serialize(v, sinks::StringSink::Make(out), indent))
-		out.clear();
-	return out;
-}
 
 std::pair<json::Value, bool> json::Deserialize(const std::string_view& s) {
 	JsonDeserializeState state(s);

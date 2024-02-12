@@ -12,25 +12,36 @@ namespace json {
 		JsonBuilderException(const std::string& s) : runtime_error(s) {}
 	};
 
+	template <stc::IsChar ChType>
 	class BuildValue;
+
+	template <stc::IsChar ChType>
 	class BuildObject;
+
+	template <stc::IsChar ChType>
 	class BuildArray;
-	json::BuildValue Build(const json::Utf8Sink::Ptr& sink, const std::string& indent = "\t", size_t bufferSize = 2048);
+
+	template <stc::IsChar ChType>
+	json::BuildValue<ChType> Build(const json::SinkPtr<ChType>& sink, const std::string& indent = "\t", size_t bufferSize = 2048);
 
 	namespace detail {
-		class BuildState {
-			friend json::BuildValue json::Build(const json::Utf8Sink::Ptr&, const std::string&, size_t);
-		public:
-			struct State {
-				detail::Serializer serializer;
-				std::stack<detail::BuildState*> active;
-				size_t valueStamp = 0;
-				bool awaitingValue = false;
-				bool done = false;
-			};
+		template <stc::IsChar ChType>
+		class BuildInstance;
 
+		template <stc::IsChar ChType>
+		struct SharedState {
+			detail::Serializer<ChType> serializer;
+			std::stack<detail::BuildInstance<ChType>*> active;
+			size_t valueStamp = 0;
+			bool awaitingValue = false;
+			bool done = false;
+		};
+
+		template <stc::IsChar ChType>
+		class BuildInstance {
+			friend json::BuildValue<ChType> json::Build<ChType>(const json::SinkPtr<ChType>&, const std::string&, size_t);
 		private:
-			enum class Type : uint8_t {
+			enum class State : uint8_t {
 				closed,
 				value,
 				arr,
@@ -38,30 +49,30 @@ namespace json {
 			};
 
 		private:
-			std::shared_ptr<State> pState;
+			std::shared_ptr<detail::SharedState<ChType>> pShared;
 			size_t pStamp = 0;
-			Type pType = Type::closed;
+			State pState = State::closed;
 
 		public:
-			BuildState() = default;
-			BuildState(const detail::BuildState&) = delete;
-			BuildState(detail::BuildState&& b) noexcept {
-				pState = std::move(b.pState);
+			BuildInstance() = default;
+			BuildInstance(const detail::BuildInstance<ChType>&) = delete;
+			BuildInstance(detail::BuildInstance<ChType>&& b) noexcept {
+				pShared = std::move(b.pShared);
 				pStamp = b.pStamp;
-				pType = b.pType;
-				b.pType = Type::closed;
+				pState = b.pState;
+				b.pState = State::closed;
 			}
-			detail::BuildState& operator=(const detail::BuildState&) = delete;
-			detail::BuildState& operator=(detail::BuildState&& b) noexcept {
-				pType = b.pType;
-				b.pType = Type::closed;
+			detail::BuildInstance<ChType>& operator=(const detail::BuildInstance<ChType>&) = delete;
+			detail::BuildInstance<ChType>& operator=(detail::BuildInstance<ChType>&& b) noexcept {
+				pState = b.pState;
+				b.pState = State::closed;
+				std::swap(pShared, b.pShared);
 				std::swap(pState, b.pState);
-				std::swap(pType, b.pType);
 				std::swap(pStamp, b.pStamp);
 				return *this;
 			}
-			~BuildState() {
-				if (pType == Type::closed)
+			~BuildInstance() {
+				if (pState == State::closed)
 					return;
 				fEnsureCapture();
 				fClose(true);
@@ -70,61 +81,111 @@ namespace json {
 		private:
 			bool fEnsureCapture() {
 				/* check if this object is either burnt or not the active value anymore */
-				if (pState->done || pType == Type::closed || (pType == Type::value && (pStamp != pState->valueStamp || !pState->awaitingValue)))
+				if (pShared->done || pState == State::closed || (pState == State::value && (pStamp != pShared->valueStamp || !pShared->awaitingValue)))
 					throw json::JsonBuilderException("Builder object is not in an active state");
 
 				/* check if this is a value, in which case it must be the active value */
-				if (pType == Type::value)
+				if (pState == State::value)
 					return true;
 
 				/* check if a value is currently expected and just write null */
 				bool valid = true;
-				if (pState->awaitingValue) {
-					pState->awaitingValue = false;
-					valid = pState->serializer.addPrimitive(json::Null());
+				if (pShared->awaitingValue) {
+					pShared->awaitingValue = false;
+					valid = pShared->serializer.addPrimitive(json::Null());
 				}
 
 				/* close all builder until this is the next active builder */
-				while (pState->active.top() != this)
-					valid = (pState->active.top()->fClose(true) && valid);
+				while (pShared->active.top() != this)
+					valid = (pShared->active.top()->fClose(true) && valid);
 				return valid;
 			}
 			bool fClose(bool unsolicited) {
 				bool valid = true;
 
 				/* check if this is not a primitive value, in which case it can just be closed normally */
-				if (pType != Type::value) {
-					valid = pState->serializer.end(pType == Type::obj);
-					pState->active.pop();
+				if (pState != State::value) {
+					valid = pShared->serializer.end(pState == State::obj);
+					pShared->active.pop();
 				}
 
 				/* check if this is the active value, in which case it can just be replaced by a null
 				*	(unless it has was a solicited close, for example because the value was written) */
-				else if (pStamp == pState->valueStamp && pState->awaitingValue) {
-					pState->awaitingValue = false;
+				else if (pStamp == pShared->valueStamp && pShared->awaitingValue) {
+					pShared->awaitingValue = false;
 					if (unsolicited)
-						valid = pState->serializer.addPrimitive(json::Null());
+						valid = pShared->serializer.addPrimitive(json::Null());
 				}
 
 				/* mark this object as burnt and check if this was the last value, in which case the serializer can be flushed
 				*	(no need to check for an awaiting value, as it was either this object, or this capture nulled the value) */
-				pType = Type::closed;
-				if (pState->active.empty()) {
-					valid = (pState->serializer.flush() && valid);
-					pState->done = true;
+				pState = State::closed;
+				if (pShared->active.empty()) {
+					valid = (pShared->serializer.flush() && valid);
+					pShared->done = true;
 				}
 				return valid;
 			}
 
+		private:
+			bool fWriteValue(json::IsString auto&& v) {
+				return pShared->serializer.addPrimitive(v);
+			}
+			bool fWriteValue(json::IsPrimitive auto&& v) {
+				return pShared->serializer.addPrimitive(v);
+			}
+			bool fWriteValue(json::IsArray auto&& v) {
+				if (!pShared->serializer.begin(false))
+					return false;
+				for (const auto& entry : v) {
+					if (!pShared->serializer.arrayValue() || !fWriteValue(entry))
+						return false;
+				}
+				return pShared->serializer.end(false);
+			}
+			bool fWriteValue(json::IsObject auto&& v) {
+				if (!pShared->serializer.begin(true))
+					return false;
+				for (const auto& entry : v) {
+					if (!pShared->serializer.objectKey(entry.first) || !fWriteValue(entry.second))
+						return false;
+				}
+				return pShared->serializer.end(true);
+			}
+			bool fWriteValue(json::IsValue auto&& v) {
+				if (v.isArr())
+					return fWriteValue(v.arr());
+				if (v.isObj())
+					return fWriteValue(v.obj());
+				if (v.isStr())
+					return fWriteValue(v.str());
+				if (v.isINum())
+					return fWriteValue(v.inum());
+				if (v.isUNum())
+					return fWriteValue(v.unum());
+				if (v.isReal())
+					return fWriteValue(v.real());
+				if (v.isBoolean())
+					return fWriteValue(v.boolean());
+				return fWriteValue(json::Null());
+			}
+
+		public:
+			void initValue() {
+				pState = State::value;
+				pStamp = ++pShared->valueStamp;
+				pShared->awaitingValue = true;
+			}
+
 		public:
 			bool error() const {
-				return !pState->serializer.valid();
+				return !pShared->serializer.valid();
 			}
 			bool done() const {
-				return pState->done;
+				return pShared->done;
 			}
 			bool closed() const {
-				return (pType == Type::closed);
+				return (pState == State::closed);
 			}
 			bool capture() {
 				return fEnsureCapture();
@@ -132,48 +193,54 @@ namespace json {
 
 		public:
 			/* must first be called once capture has been called */
-			detail::Serializer& out() {
-				return pState->serializer;
+			detail::Serializer<ChType>& out() {
+				return pShared->serializer;
 			}
-			void passCapture(detail::BuildState* b, bool obj) {
-				b->pState = pState;
+			void passCapture(detail::BuildInstance<ChType>* b, bool obj) {
+				b->pShared = pShared;
 
 				/* add the builder as new top and configure it to the corresponding type */
-				b->pType = (obj ? Type::obj : Type::arr);
-				pState->active.push(b);
+				b->pState = (obj ? State::obj : State::arr);
+				pShared->active.push(b);
 
 				/* add the corresponding begin-token */
-				pState->serializer.begin(obj);
+				pShared->serializer.begin(obj);
 			}
-			void nextValue(detail::BuildState& b) {
-				b.pState = pState;
+			void nextValue(detail::BuildInstance<ChType>& b) {
+				b.pShared = pShared;
 
 				/* configure the object and state such that the object is the next value to be written out */
-				b.pType = Type::value;
-				b.pStamp = ++pState->valueStamp;
-				pState->awaitingValue = true;
+				b.pState = State::value;
+				b.pStamp = ++pShared->valueStamp;
+				pShared->awaitingValue = true;
 			}
 			bool close() {
 				return fClose(false);
 			}
+
+		public:
+			bool writeValue(json::IsJson auto&& v) {
+				return fWriteValue(v);
+			}
 		};
 	}
 
+	template <stc::IsChar ChType>
 	class BuildValue {
-		friend json::BuildValue json::Build(const json::Utf8Sink::Ptr&, const std::string&, size_t);
-		friend class json::BuildObject;
-		friend class json::BuildArray;
+		friend json::BuildValue<ChType> json::Build<ChType>(const json::SinkPtr<ChType>&, const std::string&, size_t);
+		friend class json::BuildObject<ChType>;
+		friend class json::BuildArray<ChType>;
 	private:
-		detail::BuildState pBuilder;
+		detail::BuildInstance<ChType> pBuilder;
 
 	private:
 		BuildValue() = default;
 
 	public:
-		BuildValue(const json::BuildValue&) = delete;
-		BuildValue(json::BuildValue&&) = default;
-		json::BuildValue& operator=(const json::BuildValue&) = delete;
-		json::BuildValue& operator=(json::BuildValue&&) = default;
+		BuildValue(const json::BuildValue<ChType>&) = delete;
+		BuildValue(json::BuildValue<ChType>&&) = default;
+		json::BuildValue<ChType>& operator=(const json::BuildValue<ChType>&) = delete;
+		json::BuildValue<ChType>& operator=(json::BuildValue<ChType>&&) = default;
 		~BuildValue() = default;
 
 	public:
@@ -188,42 +255,59 @@ namespace json {
 		}
 
 	public:
-		template <detail::AnyPrimitive Type>
-		json::BuildValue& operator=(Type&& v) {
-			BuildValue::set(v);
+		json::BuildValue<ChType>& operator=(json::IsJson auto&& v) {
+			BuildValue<ChType>::set(v);
 			return *this;
 		}
 
 	public:
-		template <detail::AnyPrimitive Type>
-		bool set(Type&& v) {
+		bool set(json::IsJson auto&& v) {
 			bool valid = pBuilder.capture();
 
 			/* write the value out and mark this object as done */
-			valid = (pBuilder.out().addPrimitive(v) && valid);
+			valid = (pBuilder.writeValue(v) && valid);
 			return (pBuilder.close() && valid);
 		}
-		json::BuildObject obj();
-		json::BuildArray arr();
+		json::BuildObject<ChType> obj() {
+			json::BuildObject<ChType> out{};
+
+			/* dont pass failure out, as the caller can just call the error-method to check for issues (important
+			*	to first close after passing the capture, as object can otherwise be flushed prematurely) */
+			pBuilder.capture();
+			pBuilder.passCapture(out.pBuilder.get(), true);
+			pBuilder.close();
+			return out;
+		}
+		json::BuildArray<ChType> arr() {
+			json::BuildArray<ChType> out{};
+
+			/* dont pass failure out, as the caller can just call the error-method to check for issues (important
+			*	to first close after passing the capture, as object can otherwise be flushed prematurely) */
+			pBuilder.capture();
+			pBuilder.passCapture(out.pBuilder.get(), false);
+			pBuilder.close();
+			return out;
+		}
 	};
 
+	template <stc::IsChar ChType>
 	class BuildObject {
-		friend class json::BuildValue;
-		friend class json::BuildArray;
+		friend class json::BuildValue<ChType>;
+		friend class json::BuildArray<ChType>;
 	private:
 		/* must be a pointer as it will be stored in the internal build-state */
-		std::unique_ptr<detail::BuildState> pBuilder;
+		std::unique_ptr<detail::BuildInstance<ChType>> pBuilder;
 
 	private:
 		BuildObject() {
-			pBuilder = std::make_unique<detail::BuildState>();
+			pBuilder = std::make_unique<detail::BuildInstance<ChType>>();
 		}
 
 	public:
-		BuildObject(const json::BuildObject&) = delete;
-		BuildObject(json::BuildObject&&) = default;
-		json::BuildObject& operator=(const json::BuildObject&) = delete;
-		json::BuildObject& operator=(json::BuildObject&&) = default;
+		BuildObject(const json::BuildObject<ChType>&) = delete;
+		BuildObject(json::BuildObject<ChType>&&) = default;
+		json::BuildObject<ChType>& operator=(const json::BuildObject<ChType>&) = delete;
+		json::BuildObject<ChType>& operator=(json::BuildObject<ChType>&&) = default;
 		~BuildObject() = default;
 
 	public:
@@ -242,67 +326,64 @@ namespace json {
 			bool valid = pBuilder->capture();
 			return (pBuilder->close() && valid);
 		}
-		template <detail::AnyString KType>
-		json::BuildValue addVal(KType&& k) {
+		json::BuildValue<ChType> addVal(detail::SerializeString auto&& k) {
 			/* dont pass failure out, as the caller can just call the error-method to check for issues */
 			pBuilder->capture();
 			pBuilder->out().objectKey(k);
 
 			/* setup the builder and pass the capture to it */
-			json::BuildValue out;
+			json::BuildValue<ChType> out{};
 			pBuilder->nextValue(out.pBuilder);
 			return out;
 		}
-		template <detail::AnyString KType>
-		json::BuildArray addArr(KType&& k) {
+		json::BuildArray<ChType> addArr(detail::SerializeString auto&& k) {
 			/* dont pass failure out, as the caller can just call the error-method to check for issues */
 			pBuilder->capture();
 			pBuilder->out().objectKey(k);
 
 			/* setup the builder and pass the capture to it */
-			json::BuildArray out;
+			json::BuildArray<ChType> out{};
 			pBuilder->passCapture(out.pBuilder.get(), false);
 			return out;
 		}
-		template <detail::AnyString KType>
-		json::BuildObject addObj(KType&& k) {
+		json::BuildObject<ChType> addObj(detail::SerializeString auto&& k) {
 			/* dont pass failure out, as the caller can just call the error-method to check for issues */
 			pBuilder->capture();
 			pBuilder->out().objectKey(k);
 
 			/* setup the builder and pass the capture to it */
-			json::BuildObject out;
+			json::BuildObject<ChType> out{};
 			pBuilder->passCapture(out.pBuilder.get(), true);
 			return out;
 		}
-		template <detail::AnyString KType, detail::AnyPrimitive VType>
-		bool add(KType&& k, VType&& v) {
+		bool add(detail::SerializeString auto&& k, json::IsJson auto&& v) {
 			/* write the key out */
 			bool valid = pBuilder->capture();
 			valid = (pBuilder->out().objectKey(k) && valid);
 
 			/* write the value immediately out */
-			return (pBuilder->out().addPrimitive(v) && valid);
+			return (pBuilder->writeValue(v) && valid);
 		}
 	};
 
+	template <stc::IsChar ChType>
 	class BuildArray {
-		friend class json::BuildValue;
-		friend class json::BuildObject;
+		friend class json::BuildValue<ChType>;
+		friend class json::BuildObject<ChType>;
 	private:
 		/* must be a pointer as it will be stored in the internal build-state */
-		std::unique_ptr<detail::BuildState> pBuilder;
+		std::unique_ptr<detail::BuildInstance<ChType>> pBuilder;
 
 	private:
 		BuildArray() {
-			pBuilder = std::make_unique<detail::BuildState>();
+			pBuilder = std::make_unique<detail::BuildInstance<ChType>>();
 		}
 
 	public:
-		BuildArray(const json::BuildArray&) = delete;
-		BuildArray(json::BuildArray&&) = default;
-		json::BuildArray& operator=(const json::BuildArray&) = delete;
-		json::BuildArray& operator=(json::BuildArray&&) = default;
+		BuildArray(const json::BuildArray<ChType>&) = delete;
+		BuildArray(json::BuildArray<ChType>&&) = default;
+		json::BuildArray<ChType>& operator=(const json::BuildArray<ChType>&) = delete;
+		json::BuildArray<ChType>& operator=(json::BuildArray<ChType>&&) = default;
 		~BuildArray() = default;
 
 	public:
@@ -321,78 +402,54 @@ namespace json {
 			bool valid = pBuilder->capture();
 			return (pBuilder->close() && valid);
 		}
-		json::BuildValue pushVal() {
+		json::BuildValue<ChType> pushVal() {
 			/* dont pass failure out, as the caller can just call the error-method to check for issues */
 			pBuilder->capture();
 			pBuilder->out().arrayValue();
 
 			/* setup the builder and pass the capture to it */
-			json::BuildValue out;
+			json::BuildValue<ChType> out{};
 			pBuilder->nextValue(out.pBuilder);
 			return out;
 		}
-		json::BuildArray pushArr() {
+		json::BuildArray<ChType> pushArr() {
 			/* dont pass failure out, as the caller can just call the error-method to check for issues */
 			pBuilder->capture();
 			pBuilder->out().arrayValue();
 
 			/* setup the builder and pass the capture to it */
-			json::BuildArray out;
+			json::BuildArray<ChType> out{};
 			pBuilder->passCapture(out.pBuilder.get(), false);
 			return out;
 		}
-		json::BuildObject pushObj() {
+		json::BuildObject<ChType> pushObj() {
 			/* dont pass failure out, as the caller can just call the error-method to check for issues */
 			pBuilder->capture();
 			pBuilder->out().arrayValue();
 
 			/* setup the builder and pass the capture to it */
-			json::BuildObject out;
+			json::BuildObject<ChType> out{};
 			pBuilder->passCapture(out.pBuilder.get(), true);
 			return out;
 		}
-		template <detail::AnyPrimitive Type>
-		bool push(Type&& v) {
+		bool push(json::IsJson auto&& v) {
 			/* start the next value */
 			bool valid = pBuilder->capture();
 			valid = (pBuilder->out().arrayValue() && valid);
 
 			/* write the value immediately out */
-			return (pBuilder->out().addPrimitive(v) && valid);
+			return (pBuilder->writeValue(v) && valid);
 		}
 	};
 
-	inline json::BuildObject json::BuildValue::obj() {
-		json::BuildObject out;
+	template <stc::IsChar ChType>
+	inline json::BuildValue<ChType> Build(const json::SinkPtr<ChType>& sink, const std::string& indent, size_t bufferSize) {
+		json::BuildValue<ChType> out{};
 
-		/* dont pass failure out, as the caller can just call the error-method to check for issues (important
-		*	to first close after passing the capture, as object can otherwise be flushed prematurely) */
-		pBuilder.capture();
-		pBuilder.passCapture(out.pBuilder.get(), true);
-		pBuilder.close();
-		return out;
-	}
-	inline json::BuildArray json::BuildValue::arr() {
-		json::BuildArray out;
-
-		/* dont pass failure out, as the caller can just call the error-method to check for issues (important
-		*	to first close after passing the capture, as object can otherwise be flushed prematurely) */
-		pBuilder.capture();
-		pBuilder.passCapture(out.pBuilder.get(), false);
-		pBuilder.close();
-		return out;
-	}
-
-	inline json::BuildValue Build(const json::Utf8Sink::Ptr& sink, const std::string& indent, size_t bufferSize) {
-		json::BuildValue out;
-
-		/* setup the first builder and corresponding build-state */
-		out.pBuilder.pState = std::make_shared<detail::BuildState::State>();
-		out.pBuilder.pType = detail::BuildState::Type::value;
-
-		/* setup the shared build-state */
-		out.pBuilder.pState->serializer.setup(indent, sink, bufferSize);
-		out.pBuilder.pState->awaitingValue = true;
+		/* setup the shared state and mark this value as the first value */
+		out.pBuilder.pShared = std::make_shared<detail::SharedState<ChType>>();
+		out.pBuilder.pShared->serializer.setup(indent, sink, bufferSize);
+		out.pBuilder.initValue();
 		return out;
 	}
 }
