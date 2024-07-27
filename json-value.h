@@ -33,6 +33,10 @@ namespace json {
 		using StrPtr = std::unique_ptr<json::Str>;
 		using ObjPtr = std::unique_ptr<json::Obj>;
 
+		/* json-null first to default-construct as null */
+		template <class AType, class SType, class OType>
+		using JsonTypes = std::variant<json::Null, json::UNum, json::INum, json::Real, json::Bool, AType, SType, OType>;
+
 		using ValueParent = detail::JsonTypes<detail::ArrPtr, detail::StrPtr, detail::ObjPtr>;
 	}
 

@@ -7,12 +7,36 @@
 #include <iostream>
 #include <charconv>
 #include <limits>
-#include <tuple>
 #include <concepts>
 #include <type_traits>
 
 namespace json {
-	template <stc::IsChar ChType>
+	template <str::AnySink SinkType>
+	class Consumer {
+	private:
+		using ChType = str::SinkChar<SinkType>;
+
+	private:
+		std::basic_string<ChType> pBuffer;
+		SinkType&& pSink;
+
+	public:
+		constexpr Consumer(SinkType&& sink, size_t bufferSize = 2048) : pSink{ sink } {
+		}
+	};
+	template <str::AnySink SinkType>
+	Consumer(SinkType&) -> Consumer<SinkType&>;
+	template <str::AnySink SinkType>
+	Consumer(SinkType&&) -> Consumer<SinkType>;
+	template <str::AnySink SinkType>
+	Consumer(SinkType&, size_t) -> Consumer<SinkType&>;
+	template <str::AnySink SinkType>
+	Consumer(SinkType&&, size_t) -> Consumer<SinkType>;
+
+
+
+
+	template <str::IsChar ChType>
 	class Sink {
 	protected:
 		Sink() = default;
@@ -24,11 +48,11 @@ namespace json {
 		virtual bool consume(const std::basic_string_view<ChType>& data) = 0;
 	};
 
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	using SinkPtr = std::shared_ptr<json::Sink<ChType>>;
 
 	namespace sinks {
-		template <stc::IsChar ChType>
+		template <str::IsChar ChType>
 		class StringSink final : public json::Sink<ChType> {
 		private:
 			std::basic_string<ChType>& pOut;
@@ -48,7 +72,7 @@ namespace json {
 			}
 		};
 
-		template <stc::IsChar ChType>
+		template <str::IsChar ChType>
 		class StreamSink final : public json::Sink<ChType> {
 		private:
 			std::basic_ostream<ChType>& pOut;
@@ -69,26 +93,19 @@ namespace json {
 		};
 	}
 
-	/*
-	 *	Indent: Indentation sequence to be used (if empty, compact output)
-	 *	BufferSize: Number of bytes buffered before flushing to the sink
-	 *	Output is json conform
-	 *	Fails if flush fails, otherwise succeeeds
-	 *	Serialization can continue on failed object, but will just not write anything out anymore
-	 */
 	namespace detail {
 		template <class Type>
 		concept SerializeString = json::IsString<Type>;
 		template <class Type>
-		concept SerializePrimitive = json::IsString<Type> || json::IsPrimitive<Type>;
+		concept SerializePrimitive = (json::IsString<Type> || json::IsPrimitive<Type>);
 
-		template <stc::IsChar ChType>
+		template <class ChType>
 		class Serializer {
 		private:
-			/* buffer large enough to hold all numbers/doubles/uft16-sequences */
-			char pNumBuffer[96] = { 0 };
+			/* buffer is large enough to hold all numbers/doubles/uft16-sequences */
+			char pNumBuffer[64] = { 0 };
 			json::SinkPtr<ChType> pSink;
-			stc::String<ChType> pBuffer;
+			std::basic_string<ChType> pBuffer;
 			std::string pIndent;
 			size_t pOffset = 0;
 			size_t pDepth = 0;
@@ -96,23 +113,25 @@ namespace json {
 
 		private:
 			bool fFlush() {
-				if (pSink->consume(stc::View<ChType>{ pBuffer.data(), pOffset }))
+				if (pSink->consume(std::basic_string_view<ChType>{ pBuffer.data(), pOffset }))
 					pOffset = 0;
 				else
 					pSink = nullptr;
 				return (pSink != nullptr);
 			}
-			bool fWrite(stc::IsString auto&& data) {
+			bool fWrite(const auto& data) {
 				/* check if the flushing has already failed */
 				if (pSink == nullptr)
 					return false;
 
 				/* write the data to the buffer and check if it needs to be flushed */
-				stc::ViewFromStr<decltype(data)> view{ data };
+				std::basic_string_view<str::StrChar<decltype(data)>> view{ data };
 				while (!view.empty()) {
-					/* transcode the next codepoint (invalid codepoints will just not show up in the output) */
-					auto [out, len] = stc::Transcode<ChType>(view);
+					/* transcode the next codepoint (ignore errors) */
+					auto [out, len] = str::Transcode<ChType, str::err::Nothing>(view);
 					view = view.substr(len);
+					if (out.empty())
+						continue;
 
 					/* check if the data can be appended to the buffer, or if it needs to be flushed (buffer-size is
 					*	ensured to be large enough to fit at least one transcoded character of any possible length) */
@@ -146,17 +165,16 @@ namespace json {
 					pNumBuffer[2 + i] = "0123456789abcdef"[(val >> (12 - (i * 4))) & 0x0f];
 				return fWrite(std::string_view{ pNumBuffer, 6 });
 			}
-			bool fWriteString(stc::IsString auto&& s) {
+			bool fWriteString(const auto& s) {
 				if (!fWrite('\"'))
 					return false;
-				stc::ViewFromStr<decltype(s)> view{ s };
+				std::basic_string_view<str::StrChar<decltype(s)>> view{ s };
 
-				/* decode the codepoints and handle all relevant escaping, as required by the json-standard
-				*	(although standard only requires view characters to be encoded as \u, only ascii characters
-				*	will not be printed as \u strings; invalid codepoints will be replaced by default error-char) */
+				/* decode the codepoints and handle all relevant escaping, as required by the json-standard (although standard
+				*	only requires view characters to be encoded as \u, only ascii characters will not be printed as \u strings) */
 				while (!view.empty()) {
-					/* transcode the next character to utf-16 */
-					auto [out, len] = stc::Transcode<char16_t>(view);
+					/* transcode the next character to utf-16 (ignore any transcoding-errors) */
+					auto [out, len] = str::Transcode<char16_t, str::err::Nothing>(view);
 					view = view.substr(len);
 
 					/* check if there are 0 (error) or 2 (maximum) chars, in which case they can immediately be written out as \u-encoded sequences */
@@ -204,7 +222,7 @@ namespace json {
 				}
 
 				pSink = sink;
-				pBuffer.resize(std::max<size_t>({ 1, stc::MaxEncodeLength, bufferSize }));
+				pBuffer.resize(std::max<size_t>({ 1, str::MaxEncSize<ChType>, bufferSize }));
 				pOffset = 0;
 				pDepth = 0;
 				pAlreadyHasValue = false;
@@ -248,7 +266,7 @@ namespace json {
 			bool begin(bool obj) {
 				++pDepth;
 				pAlreadyHasValue = false;
-				return fWrite(obj ? '{' : L'[');
+				return fWrite(obj ? '{' : '[');
 			}
 			bool objectKey(detail::SerializeString auto&& s) {
 				/* check if a separator needs to be added */
@@ -282,66 +300,87 @@ namespace json {
 			}
 		};
 
-		template <stc::IsChar ChType>
+		template <class ChType>
 		class JsonSerializer {
 		private:
 			detail::Serializer<ChType> pSerializer;
 
 		private:
-			bool fProcess(json::IsPrimitive auto&& v) {
+			bool fWriteString(auto&& v) {
 				return pSerializer.addPrimitive(v);
 			}
-			bool fProcess(json::IsString auto&& v) {
-				return pSerializer.addPrimitive(v);
-			}
-			bool fProcess(json::IsArray auto& v) {
+			bool fWriteArray(auto&& v) {
 				if (!pSerializer.begin(false))
 					return false;
 				for (const auto& entry : v) {
-					if (!pSerializer.arrayValue() || !fProcess(entry))
+					if (!pSerializer.arrayValue() || !fWrite(entry))
 						return false;
 				}
 				return pSerializer.end(false);
 			}
-			bool fProcess(json::IsObject auto& v) {
+			bool fWriteObject(auto&& v) {
 				if (!pSerializer.begin(true))
 					return false;
 				for (const auto& entry : v) {
-					if (!pSerializer.objectKey(entry.first) || !fProcess(entry.second))
+					if (!pSerializer.objectKey(entry.first) || !fWrite(entry.second))
 						return false;
 				}
 				return pSerializer.end(true);
 			}
-			bool fProcess(json::IsValue auto&& v) {
+			bool fWritePrimitive(auto&& v) {
+				return pSerializer.addPrimitive(v);
+			}
+			bool fWriteValue(auto&& v) {
 				if (v.isArr())
-					return fProcess(v.arr());
+					return fWriteArray(v.arr());
 				if (v.isObj())
-					return fProcess(v.obj());
+					return fWriteObject(v.obj());
 				if (v.isStr())
-					return fProcess(v.str());
+					return fWriteString(v.str());
 				if (v.isINum())
-					return fProcess(v.inum());
+					return fWritePrimitive(v.inum());
 				if (v.isUNum())
-					return fProcess(v.unum());
+					return fWritePrimitive(v.unum());
 				if (v.isReal())
-					return fProcess(v.real());
+					return fWritePrimitive(v.real());
 				if (v.isBoolean())
-					return fProcess(v.boolean());
-				return fProcess(json::Null());
+					return fWritePrimitive(v.boolean());
+				return fWritePrimitive(json::Null());
+			}
+			template <class Type>
+			bool fWrite(Type&& v) {
+				if constexpr (json::IsObject<Type>)
+					return fWriteObject(v);
+				else if constexpr (json::IsString<Type>)
+					return fWriteString(v);
+				else if constexpr (json::IsArray<Type>)
+					return fWriteArray(v);
+				else if constexpr (json::IsValue<Type>)
+					return fWriteValue(v);
+				else
+					return fWritePrimitive(v);
 			}
 
 		public:
 			bool run(json::IsJson auto&& v, const json::SinkPtr<ChType>& sink, const std::string& indent, size_t bufferSize) {
 				pSerializer.setup(indent, sink, bufferSize);
-				if (!fProcess(v))
+				if (!fWrite(v))
 					return false;
 				return pSerializer.flush();
 			}
 		};
 	}
 
-	/* serialize json-like object to the sink */
-	template <stc::IsChar ChType>
+	/*
+	 *	Indent: Indentation sequence to be used (if empty, compact output)
+	 *	BufferSize: Number of bytes buffered before flushing to the sink
+	 *	Output is json conform
+	 *	Fails if flush fails, otherwise succeeeds
+	 *	Serialization can continue on failed object, but will just not write anything out anymore
+	 */
+
+	 /* serialize json-like object to the sink */
+	template <str::IsChar ChType>
 	bool Serialize(json::IsJson auto&& v, const json::SinkPtr<ChType>& sink, const std::string& indent = "\t", size_t bufferSize = 2048) {
 		return detail::JsonSerializer<ChType>{}.run(v, sink, indent, bufferSize);
 	}

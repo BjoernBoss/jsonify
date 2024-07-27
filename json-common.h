@@ -1,6 +1,6 @@
 #pragma once
 
-#include <str-tools/str-conv.h>
+#include <unicode-string/str.h>
 
 #include <cstdint>
 #include <variant>
@@ -8,6 +8,7 @@
 #include <string>
 
 namespace json {
+	/* primitive json-types */
 	using UNum = uint64_t;
 	using INum = int64_t;
 	using Real = long double;
@@ -26,16 +27,40 @@ namespace json {
 	};
 
 	namespace detail {
-		/* json-null first to default-construct as null */
-		template <class AType, class SType, class OType>
-		using JsonTypes = std::variant<json::Null, json::UNum, json::INum, json::Real, json::Bool, AType, SType, OType>;
+		template <class>
+		struct IsPair { static constexpr bool value = false; };
+		template <class A, class B>
+		struct IsPair<std::pair<A, B>> { static constexpr bool value = true; };
+		template <class T>
+		concept IsNotPair = !detail::IsPair<std::remove_cvref_t<T>>::value;
 	}
 
+	/* check if the type is a primitive json-value [null, bool, real, number] */
 	template <class Type>
-	concept IsString = stc::IsString<Type>;
+	concept IsPrimitive = std::same_as<std::remove_cvref_t<Type>, json::Null> || std::integral<std::remove_cvref_t<Type>> || std::floating_point<std::remove_cvref_t<Type>>;
 
+	/* check if the type can be used as json-string, which must be any string-type by str::AnyStr */
 	template <class Type>
-	concept IsValue = requires(const Type t, size_t n) {
+	concept IsString = str::AnyStr<Type>;
+
+	/* check if the type can be used as json-array, which is an iterator of values [values must implement json::IsJson] */
+	template <class Type>
+	concept IsArray = requires(const Type t) {
+		{ *t.begin() } -> detail::IsNotPair;
+		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
+	};
+
+	/* check if the type can be used as json-object, which is an iterator of pairs of strings and other values [values must implement json::IsJson] */
+	template <class Type>
+	concept IsObject = requires(const Type t) {
+		{ t.begin()->first } -> json::IsString;
+		{ t.begin()->second };
+		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
+	};
+
+	/* check if the type can be used as overall json-value, which must offer flags and corresponding values for every possible json-type */
+	template <class Type>
+	concept IsValue = requires(const Type t) {
 		{ t.isNull() } -> std::same_as<bool>;
 
 		{ t.isBoolean() } -> std::same_as<bool>;
@@ -54,35 +79,13 @@ namespace json {
 		{ t.str() } -> json::IsString;
 
 		{ t.isArr() } -> std::same_as<bool>;
-		{ t.arr() };
-		{ *t.arr().begin() } -> std::convertible_to<const Type>;
-		{ *t.arr().end() } -> std::convertible_to<const Type>;
+		{ t.arr() } -> json::IsArray;
 
 		{ t.isObj() } -> std::same_as<bool>;
-		{ t.obj() };
-		{ t.obj().begin()->first } -> json::IsString;
-		{ t.obj().begin()->second } -> std::convertible_to<const Type>;
-		{ t.obj().end()->first } -> json::IsString;
-		{ t.obj().end()->second } -> std::convertible_to<const Type>;
+		{ t.obj() } -> json::IsObject;
 	};
 
+	/* check if the type is any valid json-value */
 	template <class Type>
-	concept IsPrimitive = std::same_as<std::decay_t<Type>, json::Null> || std::integral<std::decay_t<Type>> || std::floating_point<std::decay_t<Type>>;
-
-	template <class Type>
-	concept IsArray = requires(const Type t, size_t n) {
-		{ *t.begin() } -> json::IsValue;
-		{ *t.end() } -> json::IsValue;
-	};
-
-	template <class Type>
-	concept IsObject = requires(const Type t) {
-		{ t.begin()->first } -> json::IsString;
-		{ t.begin()->second } -> json::IsValue;
-		{ t.end()->first } -> json::IsString;
-		{ t.end()->second } -> json::IsValue;
-	};
-
-	template <class Type>
-	concept IsJson = json::IsString<Type> || json::IsValue<Type> || json::IsPrimitive<Type> || json::IsObject<Type> || json::IsArray<Type>;
+	concept IsJson = json::IsPrimitive<Type> || json::IsString<Type> || json::IsArray<Type> || json::IsObject<Type> || json::IsValue<Type>;
 }

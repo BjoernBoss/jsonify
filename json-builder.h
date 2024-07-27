@@ -12,23 +12,23 @@ namespace json {
 		JsonBuilderException(const std::string& s) : runtime_error(s) {}
 	};
 
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	class BuildValue;
 
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	class BuildObject;
 
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	class BuildArray;
 
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	json::BuildValue<ChType> Build(const json::SinkPtr<ChType>& sink, const std::string& indent = "\t", size_t bufferSize = 2048);
 
 	namespace detail {
-		template <stc::IsChar ChType>
+		template <class ChType>
 		class BuildInstance;
 
-		template <stc::IsChar ChType>
+		template <class ChType>
 		struct SharedState {
 			detail::Serializer<ChType> serializer;
 			std::stack<detail::BuildInstance<ChType>*> active;
@@ -37,7 +37,7 @@ namespace json {
 			bool done = false;
 		};
 
-		template <stc::IsChar ChType>
+		template <class ChType>
 		class BuildInstance {
 			friend json::BuildValue<ChType> json::Build<ChType>(const json::SinkPtr<ChType>&, const std::string&, size_t);
 		private:
@@ -110,46 +110,59 @@ namespace json {
 			}
 
 		private:
-			bool fWriteValue(json::IsString auto&& v) {
+			bool fWriteString(auto&& v) {
 				return pShared->serializer.addPrimitive(v);
 			}
-			bool fWriteValue(json::IsPrimitive auto&& v) {
-				return pShared->serializer.addPrimitive(v);
-			}
-			bool fWriteValue(json::IsArray auto&& v) {
+			bool fWriteArray(auto&& v) {
 				if (!pShared->serializer.begin(false))
 					return false;
 				for (const auto& entry : v) {
-					if (!pShared->serializer.arrayValue() || !fWriteValue(entry))
+					if (!pShared->serializer.arrayValue() || !fWrite(entry))
 						return false;
 				}
 				return pShared->serializer.end(false);
 			}
-			bool fWriteValue(json::IsObject auto&& v) {
+			bool fWriteObject(auto&& v) {
 				if (!pShared->serializer.begin(true))
 					return false;
 				for (const auto& entry : v) {
-					if (!pShared->serializer.objectKey(entry.first) || !fWriteValue(entry.second))
+					if (!pShared->serializer.objectKey(entry.first) || !fWrite(entry.second))
 						return false;
 				}
 				return pShared->serializer.end(true);
 			}
-			bool fWriteValue(json::IsValue auto&& v) {
+			bool fWritePrimitive(auto&& v) {
+				return pShared->serializer.addPrimitive(v);
+			}
+			bool fWriteValue(auto&& v) {
 				if (v.isArr())
-					return fWriteValue(v.arr());
+					return fWriteArray(v.arr());
 				if (v.isObj())
-					return fWriteValue(v.obj());
+					return fWriteObject(v.obj());
 				if (v.isStr())
-					return fWriteValue(v.str());
+					return fWriteString(v.str());
 				if (v.isINum())
-					return fWriteValue(v.inum());
+					return fWritePrimitive(v.inum());
 				if (v.isUNum())
-					return fWriteValue(v.unum());
+					return fWritePrimitive(v.unum());
 				if (v.isReal())
-					return fWriteValue(v.real());
+					return fWritePrimitive(v.real());
 				if (v.isBoolean())
-					return fWriteValue(v.boolean());
-				return fWriteValue(json::Null());
+					return fWritePrimitive(v.boolean());
+				return fWritePrimitive(json::Null());
+			}
+			template <class Type>
+			bool fWrite(Type&& v) {
+				if constexpr (json::IsObject<Type>)
+					return fWriteObject(v);
+				else if constexpr (json::IsString<Type>)
+					return fWriteString(v);
+				else if constexpr (json::IsArray<Type>)
+					return fWriteArray(v);
+				else if constexpr (json::IsValue<Type>)
+					return fWriteValue(v);
+				else
+					return fWritePrimitive(v);
 			}
 
 		public:
@@ -202,14 +215,14 @@ namespace json {
 
 		public:
 			bool writeValue(json::IsJson auto&& v) {
-				return fWriteValue(v);
+				return fWrite(v);
 			}
 		};
 	}
 
 	/* value is volatile and can be passed around, and it will be closed on close call,
 	*	when a value is written/prepared, or when a parent object captures the builder */
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	class BuildValue {
 		friend json::BuildValue<ChType> json::Build<ChType>(const json::SinkPtr<ChType>&, const std::string&, size_t);
 		friend class json::BuildObject<ChType>;
@@ -275,7 +288,7 @@ namespace json {
 	};
 
 	/* object will be closed once close is called, the array is destructed, or a parent object captures the builder */
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	class BuildObject {
 		friend class json::BuildValue<ChType>;
 		friend class json::BuildArray<ChType>;
@@ -357,7 +370,7 @@ namespace json {
 	};
 
 	/* array will be closed once close is called, the array is destructed, or a parent object captures the builder */
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	class BuildArray {
 		friend class json::BuildValue<ChType>;
 		friend class json::BuildObject<ChType>;
@@ -433,7 +446,7 @@ namespace json {
 		}
 	};
 
-	template <stc::IsChar ChType>
+	template <str::IsChar ChType>
 	inline json::BuildValue<ChType> Build(const json::SinkPtr<ChType>& sink, const std::string& indent, size_t bufferSize) {
 		json::BuildValue<ChType> out{};
 
