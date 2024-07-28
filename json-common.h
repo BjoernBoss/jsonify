@@ -2,10 +2,14 @@
 
 #include <unicode-string/str.h>
 
-#include <cstdint>
+#include <cinttypes>
 #include <variant>
 #include <concepts>
+#include <type_traits>
 #include <string>
+#include <utility>
+#include <limits>
+#include <stdexcept>
 
 namespace json {
 	/* primitive json-types */
@@ -43,18 +47,18 @@ namespace json {
 	template <class Type>
 	concept IsString = str::AnyStr<Type>;
 
-	/* check if the type can be used as json-array, which is an iterator of values [values must implement json::IsJson] */
-	template <class Type>
-	concept IsArray = requires(const Type t) {
-		{ *t.begin() } -> detail::IsNotPair;
-		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
-	};
-
 	/* check if the type can be used as json-object, which is an iterator of pairs of strings and other values [values must implement json::IsJson] */
 	template <class Type>
 	concept IsObject = requires(const Type t) {
 		{ t.begin()->first } -> json::IsString;
 		{ t.begin()->second };
+		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
+	};
+
+	/* check if the type can be used as json-array, which is an iterator of values [values must implement json::IsJson] */
+	template <class Type>
+	concept IsArray = !json::IsString<Type> && requires(const Type t) {
+		{ *t.begin() } -> detail::IsNotPair;
 		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
 	};
 

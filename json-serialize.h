@@ -306,10 +306,10 @@ namespace json {
 			detail::Serializer<ChType> pSerializer;
 
 		private:
-			bool fWriteString(auto&& v) {
+			bool fWrite(json::IsString auto&& v) {
 				return pSerializer.addPrimitive(v);
 			}
-			bool fWriteArray(auto&& v) {
+			bool fWrite(json::IsArray auto&& v) {
 				if (!pSerializer.begin(false))
 					return false;
 				for (const auto& entry : v) {
@@ -318,7 +318,7 @@ namespace json {
 				}
 				return pSerializer.end(false);
 			}
-			bool fWriteObject(auto&& v) {
+			bool fWrite(json::IsObject auto&& v) {
 				if (!pSerializer.begin(true))
 					return false;
 				for (const auto& entry : v) {
@@ -327,39 +327,39 @@ namespace json {
 				}
 				return pSerializer.end(true);
 			}
-			bool fWritePrimitive(auto&& v) {
+			bool fWrite(json::IsPrimitive auto&& v) {
 				return pSerializer.addPrimitive(v);
 			}
-			bool fWriteValue(auto&& v) {
+			bool fWrite(json::IsValue auto&& v) {
 				if (v.isArr())
-					return fWriteArray(v.arr());
+					return fWrite(v.arr());
 				if (v.isObj())
-					return fWriteObject(v.obj());
+					return fWrite(v.obj());
 				if (v.isStr())
-					return fWriteString(v.str());
+					return fWrite(v.str());
 				if (v.isINum())
-					return fWritePrimitive(v.inum());
+					return fWrite(v.inum());
 				if (v.isUNum())
-					return fWritePrimitive(v.unum());
+					return fWrite(v.unum());
 				if (v.isReal())
-					return fWritePrimitive(v.real());
+					return fWrite(v.real());
 				if (v.isBoolean())
-					return fWritePrimitive(v.boolean());
-				return fWritePrimitive(json::Null());
+					return fWrite(v.boolean());
+				return fWrite(json::Null());
 			}
-			template <class Type>
-			bool fWrite(Type&& v) {
-				if constexpr (json::IsObject<Type>)
-					return fWriteObject(v);
-				else if constexpr (json::IsString<Type>)
-					return fWriteString(v);
-				else if constexpr (json::IsArray<Type>)
-					return fWriteArray(v);
-				else if constexpr (json::IsValue<Type>)
-					return fWriteValue(v);
-				else
-					return fWritePrimitive(v);
-			}
+			//template <class Type>
+			//bool fWrite(Type&& v) {
+			//	if constexpr (json::IsObject<Type>)
+			//		return fWrite(v);
+			//	else if constexpr (json::IsString<Type>)
+			//		return fWrite(v);
+			//	else if constexpr (json::IsArray<Type>)
+			//		return fWrite(v);
+			//	else if constexpr (json::IsValue<Type>)
+			//		return fWrite(v);
+			//	else
+			//		return fWrite(v);
+			//}
 
 		public:
 			bool run(json::IsJson auto&& v, const json::SinkPtr<ChType>& sink, const std::string& indent, size_t bufferSize) {
