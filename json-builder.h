@@ -177,8 +177,10 @@ namespace json {
 					fWriteArray(v);
 				else if constexpr (json::IsValue<Type>)
 					fWriteValue(v);
-				else
+				else {
+					static_assert(json::IsPrimitive<Type>);
 					fWritePrimitive(v);
+				}
 			}
 
 		public:
@@ -498,10 +500,11 @@ namespace json {
 		}
 	};
 
-	/* construct a json builder-value to the given sink, using the corresponding indentation (indentation will be sanitized to only contain spaces and tabs)
+	/* construct a json builder-value to the given sink, using the corresponding indentation (indentation will be
+	*	sanitized to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced)
 	*	Note: Must not outlive the sink as it stores a reference to it */
 	template <str::AnySink SinkType, char32_t CodeError = str::err::DefChar>
-	inline constexpr json::BuildValue<std::remove_cvref_t<SinkType>, CodeError> Build(SinkType& sink, const std::wstring_view& indent = L"\t") {
+	constexpr json::BuildValue<std::remove_cvref_t<SinkType>, CodeError> Build(SinkType& sink, const std::wstring_view& indent = L"\t") {
 		using ActSink = std::remove_cvref_t<SinkType>;
 		json::BuildValue<ActSink, CodeError> out = detail::BuildAccess::MakeValue<ActSink, CodeError>();
 
@@ -532,11 +535,11 @@ namespace json {
 	/* same as json::BuildArray, but uses inheritance to hide the underlying sink-type */
 	using BuildAnyArray = json::BuildArray<detail::BuildAnyType, str::err::DefChar>;
 
-	/* construct a json any-builder-value to the given sink, using the corresponding indentation but hide the actual
-	*	sink-type by using inheritance internally (indentation will be sanitized to only contain spaces and tabs)
+	/* construct a json any-builder-value to the given sink, using the corresponding indentation but hide the actual sink-type by using inheritance
+	*	internally (indentation will be sanitized to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced)
 	*	Note: Must not outlive the sink as it stores a reference to it */
 	template <str::AnySink SinkType>
-	inline constexpr json::BuildAnyValue BuildAny(SinkType& sink, const std::wstring_view& indent = L"\t") {
+	constexpr json::BuildAnyValue BuildAny(SinkType& sink, const std::wstring_view& indent = L"\t") {
 		json::BuildAnyValue out = detail::BuildAccess::MakeValue<detail::BuildAnyType, str::err::DefChar>();
 
 		/* setup the wrapper to the sink and the shared state and mark this value as the first value */
