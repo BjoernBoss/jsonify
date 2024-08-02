@@ -3,7 +3,7 @@
 #include "json-common.h"
 
 namespace json::detail {
-	template <str::AnySink SinkType, char32_t CodeError>
+	template <str::IsSink SinkType, char32_t CodeError>
 	class Serializer {
 	private:
 		SinkType pSink;

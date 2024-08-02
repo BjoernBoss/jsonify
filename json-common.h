@@ -31,27 +31,29 @@ namespace json {
 	};
 
 	namespace detail {
-		template <class>
-		struct IsPair { static constexpr bool value = false; };
-		template <class A, class B>
-		struct IsPair<std::pair<A, B>> { static constexpr bool value = true; };
-		template <class T>
-		concept IsNotPair = !detail::IsPair<std::remove_cvref_t<T>>::value;
+		template <class Type>
+		concept IsPair = requires(const Type t) {
+			{ t.first };
+			{ t.second };
+		};
+		template <class Type>
+		concept IsNotPair = !detail::IsPair<Type>;
 	}
 
 	/* check if the type is a primitive json-value [null, bool, real, number] */
 	template <class Type>
 	concept IsPrimitive = std::same_as<std::remove_cvref_t<Type>, json::Null> || std::integral<std::remove_cvref_t<Type>> || std::floating_point<std::remove_cvref_t<Type>>;
 
-	/* check if the type can be used as json-string, which must be any string-type by str::AnyStr */
+	/* check if the type can be used as json-string, which must be any string-type by str::IsStr */
 	template <class Type>
-	concept IsString = str::AnyStr<Type>;
+	concept IsString = str::IsStr<Type>;
 
 	/* check if the type can be used as json-object, which is an iterator of pairs of strings and other values [values must implement json::IsJson] */
 	template <class Type>
 	concept IsObject = requires(const Type t) {
+		{ *t.begin() } -> detail::IsPair;
 		{ t.begin()->first } -> json::IsString;
-		{ t.begin()->second };
+		{ ++t.begin() };
 		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
 	};
 
@@ -59,6 +61,7 @@ namespace json {
 	template <class Type>
 	concept IsArray = !json::IsString<Type> && requires(const Type t) {
 		{ *t.begin() } -> detail::IsNotPair;
+		{ ++t.begin() };
 		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
 	};
 

@@ -12,11 +12,11 @@ namespace json {
 		JsonBuilderException(const std::string& s) : runtime_error(s) {}
 	};
 
-	template <str::AnySink SinkType, char32_t CodeError = str::err::DefChar>
+	template <str::IsSink SinkType, char32_t CodeError = str::err::DefChar>
 	class BuildValue;
-	template <str::AnySink SinkType, char32_t CodeError = str::err::DefChar>
+	template <str::IsSink SinkType, char32_t CodeError = str::err::DefChar>
 	class BuildObject;
-	template <str::AnySink SinkType, char32_t CodeError = str::err::DefChar>
+	template <str::IsSink SinkType, char32_t CodeError = str::err::DefChar>
 	class BuildArray;
 
 	namespace detail {
@@ -40,8 +40,8 @@ namespace json {
 			virtual void write(char32_t chr, size_t count) {
 				str::CodepointTo<str::err::DefChar>(pSink, chr, count);
 			}
-			virtual void write(const char32_t* str, size_t size) {
-				str::TranscodeAllTo<str::err::DefChar>(pSink, std::u32string_view{ str, size });
+			virtual void write(const std::u32string_view& s) {
+				str::TranscodeAllTo<str::err::DefChar>(pSink, s);
 			}
 		};
 
@@ -266,7 +266,7 @@ namespace json {
 	/* json-builder of type [value], which can be used to set the currently expected value (if no value is
 	*	written to this object, defaults to null, object is volatile and can be passed around, and it will be
 	*	closed on close call, when a value is written/prepared, or when a parent object captures the builder) */
-	template <str::AnySink SinkType, char32_t CodeError>
+	template <str::IsSink SinkType, char32_t CodeError>
 	class BuildValue {
 		friend struct detail::BuildAccess;
 	private:
@@ -331,7 +331,7 @@ namespace json {
 	/* json-builder of type [object], which can be used to write key-value pairs to the corresponding object and to the
 	*	sink (this builder does not prevent already used keys to be used again, it will write all used keys out, object
 	*	will be closed once close is called, the object is destructed, or a parent object captures the builder) */
-	template <str::AnySink SinkType, char32_t CodeError>
+	template <str::IsSink SinkType, char32_t CodeError>
 	class BuildObject {
 		friend struct detail::BuildAccess;
 	private:
@@ -419,7 +419,7 @@ namespace json {
 
 	/* json-builder of type [array], which can be used to push values to the the corresponding array and to the sink
 	*	(array will be closed once close is called, the array is destructed, or a parent object captures the builder) */
-	template <str::AnySink SinkType, char32_t CodeError>
+	template <str::IsSink SinkType, char32_t CodeError>
 	class BuildArray {
 		friend struct detail::BuildAccess;
 	private:
@@ -503,7 +503,7 @@ namespace json {
 	/* construct a json builder-value to the given sink, using the corresponding indentation (indentation will be
 	*	sanitized to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced)
 	*	Note: Must not outlive the sink as it stores a reference to it */
-	template <str::AnySink SinkType, char32_t CodeError = str::err::DefChar>
+	template <str::IsSink SinkType, char32_t CodeError = str::err::DefChar>
 	constexpr json::BuildValue<std::remove_cvref_t<SinkType>, CodeError> Build(SinkType& sink, const std::wstring_view& indent = L"\t") {
 		using ActSink = std::remove_cvref_t<SinkType>;
 		json::BuildValue<ActSink, CodeError> out = detail::BuildAccess::MakeValue<ActSink, CodeError>();
@@ -516,12 +516,13 @@ namespace json {
 }
 
 template <>
-struct str::CharWriter<json::detail::BuildAnyType, char32_t> {
+struct str::CharWriter<json::detail::BuildAnyType> {
+	using ChType = char32_t;
 	constexpr void operator()(json::detail::BuildAnyType& sink, char32_t chr, size_t count) const {
 		sink.sink->write(chr, count);
 	}
-	constexpr void operator()(json::detail::BuildAnyType& sink, const char32_t* str, size_t size) const {
-		sink.sink->write(str, size);
+	constexpr void operator()(json::detail::BuildAnyType& sink, const std::u32string_view& s) const {
+		sink.sink->write(s);
 	}
 };
 
@@ -538,7 +539,7 @@ namespace json {
 	/* construct a json any-builder-value to the given sink, using the corresponding indentation but hide the actual sink-type by using inheritance
 	*	internally (indentation will be sanitized to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced)
 	*	Note: Must not outlive the sink as it stores a reference to it */
-	template <str::AnySink SinkType>
+	template <str::IsSink SinkType>
 	constexpr json::BuildAnyValue BuildAny(SinkType& sink, const std::wstring_view& indent = L"\t") {
 		json::BuildAnyValue out = detail::BuildAccess::MakeValue<detail::BuildAnyType, str::err::DefChar>();
 
