@@ -3,7 +3,7 @@
 #include "json-common.h"
 
 namespace json::detail {
-	template <str::IsSink SinkType, char32_t CodeError>
+	template <class SinkType, char32_t CodeError>
 	class Serializer {
 	private:
 		SinkType pSink;
@@ -34,10 +34,10 @@ namespace json::detail {
 
 			/* decode the codepoints and handle all relevant escaping, as required by the json-standard (although standard
 			*	only requires view characters to be encoded as \u, only ascii characters will not be printed as \u strings) */
-			std::basic_string_view<str::StrChar<decltype(s)>> view{ s };
+			std::basic_string_view<str::StringChar<decltype(s)>> view{ s };
 			while (!view.empty()) {
 				/* transcode the next character to utf-16 */
-				auto [out, len] = str::Transcode<char16_t, CodeError>(view);
+				auto [out, len] = str::GetTranscode<char16_t, CodeError>(view);
 				view = view.substr(len);
 
 				/* check if there are 0 (error) or 2 (maximum) chars, in which case they can immediately be written out as \u-encoded sequences */

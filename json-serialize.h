@@ -71,8 +71,8 @@ namespace json {
 		};
 	}
 
-	/* serialize the json-like object to the sink and return it (indentation will be sanitized to only contain
-	*	spaces and tabs, if indentation is empty, a compact json stream will be produced) */
+	/* serialize the json-like object to the sink and return it (indentation will be sanitized to
+	*	only contain spaces and tabs, if indentation is empty, a compact json stream will be produced) */
 	template <char32_t CodeError = str::err::DefChar>
 	constexpr auto& SerializeTo(str::IsSink auto&& sink, const json::IsJson auto& value, const std::wstring_view& indent = L"\t") {
 		detail::JsonSerializer<decltype(sink), CodeError> _serializer{ sink, indent, value };

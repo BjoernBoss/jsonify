@@ -1,7 +1,6 @@
 #pragma once
 
 #include "json-common.h"
-#include "json-serialize.h"
 
 #include <cstdint>
 #include <unordered_map>
@@ -10,19 +9,27 @@
 #include <vector>
 #include <variant>
 #include <stdexcept>
-#include <iostream>
 #include <memory>
 
 namespace json {
 	class Value;
+
+	/* json::Arr is a std::vector of json::Values */
 	using Arr = std::vector<json::Value>;
-	using Obj = std::unordered_map<std::wstring, json::Value>;
+
+	/* json::Str is a std::wstring */
 	using Str = std::wstring;
 
+	/* json::Obj is a std::unordered_map of json::Str to json::Values */
+	using Obj = std::unordered_map<json::Str, json::Value>;
+
+	/* exception thrown when accessing a constant json::Value as a certain type, which it is not */
 	class JsonTypeException : public std::runtime_error {
 	public:
 		JsonTypeException(const std::string& s) : runtime_error(s) {}
 	};
+
+	/* exception thrown when accessing an out-of-range index for array-like accesses */
 	class JsonRangeException : public std::runtime_error {
 	public:
 		JsonRangeException(const std::string& s) : runtime_error(s) {}
@@ -40,6 +47,10 @@ namespace json {
 		using ValueParent = detail::JsonTypes<detail::ArrPtr, detail::StrPtr, detail::ObjPtr>;
 	}
 
+	/* representation of a single json value of any kind
+	*	- uses json::Null/json::UNum/json::INum/json::Real/json::Bool/json::Arr/json::Str/json::Obj
+	*	- user-friendly and will convert to requested type whenever possible
+	*	- missing object-keys will either insert json::Null or return a constant json::Null */
 	class Value : private detail::ValueParent {
 	public:
 		Value() : detail::ValueParent(json::Null()) {}
@@ -496,14 +507,4 @@ namespace json {
 			return true;
 		}
 	};
-
-	/*
-	 *	- Input expected as utf8
-	 *	- Escape sequence [u] treated as utf16 encoding and transcoded to uft16/utf32
-	 *	- Strings are encoded as uft16/utf32
-	 *	- Consume entire string/stream else fail
-	 *	- In objects with multiple identical keys, the last occurring value will be returned
-	 */
-	std::pair<json::Value, bool> Deserialize(const std::string_view& s);
-	std::pair<json::Value, bool> Deserialize(std::istream& s);
 }
