@@ -2,14 +2,8 @@
 
 #include "json-common.h"
 
-#include <cstdint>
 #include <unordered_map>
-#include <string>
-#include <utility>
 #include <vector>
-#include <variant>
-#include <stdexcept>
-#include <memory>
 
 namespace json {
 	class Value;
@@ -17,75 +11,44 @@ namespace json {
 	/* json::Arr is a std::vector of json::Values */
 	using Arr = std::vector<json::Value>;
 
-	/* json::Str is a std::wstring */
-	using Str = std::wstring;
-
 	/* json::Obj is a std::unordered_map of json::Str to json::Values */
 	using Obj = std::unordered_map<json::Str, json::Value>;
 
-	/* exception thrown when accessing a constant json::Value as a certain type, which it is not */
-	class JsonTypeException : public std::runtime_error {
-	public:
-		JsonTypeException(const std::string& s) : runtime_error(s) {}
-	};
-
-	/* exception thrown when accessing an out-of-range index for array-like accesses */
-	class JsonRangeException : public std::runtime_error {
-	public:
-		JsonRangeException(const std::string& s) : runtime_error(s) {}
-	};
-
 	namespace detail {
-		using ArrPtr = std::unique_ptr<json::Arr>;
 		using StrPtr = std::unique_ptr<json::Str>;
+		using ArrPtr = std::unique_ptr<json::Arr>;
 		using ObjPtr = std::unique_ptr<json::Obj>;
 
 		/* json-null first to default-construct as null */
-		template <class AType, class SType, class OType>
-		using JsonTypes = std::variant<json::Null, json::UNum, json::INum, json::Real, json::Bool, AType, SType, OType>;
-
-		using ValueParent = detail::JsonTypes<detail::ArrPtr, detail::StrPtr, detail::ObjPtr>;
+		using ValueParent = std::variant<json::Null, json::UNum, json::INum, json::Real, json::Bool, detail::ArrPtr, detail::StrPtr, detail::ObjPtr>;
 	}
 
-	/* representation of a single json value of any kind
+	/* [json::IsJson] representation of a single json value of any kind
 	*	- uses json::Null/json::UNum/json::INum/json::Real/json::Bool/json::Arr/json::Str/json::Obj
 	*	- user-friendly and will convert to requested type whenever possible
-	*	- missing object-keys will either insert json::Null or return a constant json::Null */
+	*	- missing object-keys will either insert json::Null or return a constant json::Null
+	*	- uses str::err::DefChar for any string transcoding while assigning strings */
 	class Value : private detail::ValueParent {
 	public:
-		Value() : detail::ValueParent(json::Null()) {}
-		Value(json::Value&&) = default;
-		Value(const json::Value& v) : detail::ValueParent(json::Null()) {
+		constexpr Value() : detail::ValueParent{ json::Null() } {}
+		constexpr Value(json::Value&&) = default;
+		constexpr Value(const json::Value& v) : detail::ValueParent{ json::Null() } {
 			*this = v;
 		}
-
-		Value(const json::Null& n) : detail::ValueParent(n) {}
-		Value(json::Null&& n) : detail::ValueParent(std::move(n)) {}
-
-		Value(const json::Arr& a) : detail::ValueParent(std::make_unique<json::Arr>(a)) {}
-		Value(json::Arr&& a) noexcept : detail::ValueParent(std::make_unique<json::Arr>(std::move(a))) {}
-
-		Value(const json::Obj& o) : detail::ValueParent(std::make_unique<json::Obj>(o)) {}
-		Value(json::Obj&& o) noexcept : detail::ValueParent(std::make_unique<json::Obj>(std::move(o))) {}
-
-		Value(const json::Str& s) : detail::ValueParent(std::make_unique<json::Str>(s)) {}
-		Value(json::Str&& s) noexcept : detail::ValueParent(std::make_unique<json::Str>(std::move(s))) {}
-
-		Value(const wchar_t* s) : detail::ValueParent(std::make_unique<json::Str>(std::wstring(s))) {}
-		Value(json::UNum n) noexcept : detail::ValueParent(n) {}
-		Value(json::INum n) noexcept : detail::ValueParent(n) {}
-		Value(int n) noexcept {
-			if (n < 0)
-				static_cast<detail::ValueParent&>(*this) = json::INum(n);
-			else
-				static_cast<detail::ValueParent&>(*this) = json::UNum(n);
+		constexpr Value(const json::Arr& v) : detail::ValueParent{ std::make_unique<json::Arr>(v) } {}
+		constexpr Value(json::Arr&& v) : detail::ValueParent{ std::make_unique<json::Arr>(std::move(v)) } {}
+		constexpr Value(const json::Obj& v) : detail::ValueParent{ std::make_unique<json::Obj>(v) } {}
+		constexpr Value(json::Obj&& v) : detail::ValueParent{ std::make_unique<json::Obj>(std::move(v)) } {}
+		constexpr Value(const json::Str& v) : detail::ValueParent{ std::make_unique<json::Str>(v) } {}
+		constexpr Value(json::Str&& v) : detail::ValueParent{ std::make_unique<json::Str>(std::move(v)) } {}
+		constexpr Value(const json::IsJson auto& v) : detail::ValueParent{ json::Null() } {
+			using Type = decltype(v);
+			fAssignValue<Type>(std::forward<Type>(v));
 		}
-		Value(json::Real n) noexcept : detail::ValueParent(n) {}
-		Value(json::Bool b) noexcept : detail::ValueParent(b) {}
 
 	public:
-		json::Value& operator=(json::Value&&) = default;
-		json::Value& operator=(const json::Value& v) {
+		constexpr json::Value& operator=(json::Value&&) = default;
+		constexpr json::Value& operator=(const json::Value& v) {
 			if (std::holds_alternative<detail::ObjPtr>(v))
 				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Obj>(*std::get<detail::ObjPtr>(v));
 			else if (std::holds_alternative<detail::ArrPtr>(v))
@@ -104,7 +67,36 @@ namespace json {
 				static_cast<detail::ValueParent&>(*this) = std::get<json::UNum>(v);
 			return *this;
 		}
-		bool operator==(const json::Value& v) const {
+		constexpr json::Value& operator=(const json::Arr& v) {
+			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Arr>(v);
+			return *this;
+		}
+		constexpr json::Value& operator=(json::Arr&& v) {
+			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Arr>(std::move(v));
+			return *this;
+		}
+		constexpr json::Value& operator=(const json::Obj& v) {
+			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Obj>(v);
+			return *this;
+		}
+		constexpr json::Value& operator=(json::Obj&& v) {
+			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Obj>(std::move(v));
+			return *this;
+		}
+		constexpr json::Value& operator=(const json::Str& v) {
+			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Str>(v);
+			return *this;
+		}
+		constexpr json::Value& operator=(json::Str&& v) {
+			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Str>(std::move(v));
+			return *this;
+		}
+		constexpr json::Value& operator=(const json::IsJson auto& v) {
+			using Type = decltype(v);
+			fAssignValue<Type>(std::forward<Type>(v));
+			return *this;
+		}
+		constexpr bool operator==(const json::Value& v) const {
 			if (std::holds_alternative<json::Bool>(*this)) {
 				if (!std::holds_alternative<json::Bool>(v))
 					return false;
@@ -154,12 +146,73 @@ namespace json {
 			}
 			return false;
 		}
-		bool operator!=(const json::Value& v) const {
+		constexpr bool operator!=(const json::Value& v) const {
 			return !(*this == v);
 		}
 
 	private:
-		void fEnsureType(json::Type t) {
+		template <class Type>
+		constexpr void fAssignValue(Type&& val) {
+			if constexpr (json::IsObject<Type>) {
+				fEnsureType(json::Type::object);
+				json::Obj& obj = *std::get<detail::ObjPtr>(*this);
+				for (const auto& entry : val)
+					obj[entry.first] = json::Value(entry.second);
+			}
+			else if constexpr (json::IsString<Type>) {
+				fEnsureType(json::Type::string);
+				json::Str& str = *std::get<detail::StrPtr>(*this);
+				str::TranscodeAllTo<str::err::DefChar>(str, val);
+			}
+			else if constexpr (json::IsArray<Type>) {
+				fEnsureType(json::Type::array);
+				json::Arr& arr = *std::get<detail::ArrPtr>(*this);
+				for (const auto& entry : val)
+					arr.push_back(json::Value(entry));
+			}
+			else if constexpr (json::IsValue<Type>) {
+				if (val.isArr())
+					fAssignValue(val.arr());
+				else if (val.isObj())
+					fAssignValue(val.obj());
+				else if (val.isStr())
+					fAssignValue(val.str());
+				else if (val.isINum())
+					fAssignValue(val.inum());
+				else if (val.isUNum())
+					fAssignValue(val.unum());
+				else if (val.isReal())
+					fAssignValue(val.real());
+				else if (val.isBoolean())
+					fAssignValue(val.boolean());
+				else
+					fAssignValue(json::Null());
+			}
+			else {
+				static_assert(json::IsPrimitive<Type>);
+				using VType = std::remove_cvref_t<Type>;
+
+				if constexpr (std::same_as<VType, json::Bool>) {
+					fEnsureType(json::Type::boolean);
+					std::get<json::Bool>(*this) = val;
+				}
+				else if constexpr (std::floating_point<VType>) {
+					fEnsureType(json::Type::real);
+					std::get<json::Real>(*this) = val;
+				}
+				else if constexpr (std::is_unsigned_v<VType>) {
+					fEnsureType(json::Type::unumber);
+					std::get<json::UNum>(*this) = val;
+				}
+				else if constexpr (std::is_signed_v<VType>) {
+					fEnsureType(json::Type::inumber);
+					std::get<json::INum>(*this) = val;
+				}
+				else
+					fEnsureType(json::Type::null);
+			}
+		}
+		constexpr void fEnsureType(json::Type t) {
 			switch (t) {
 			case json::Type::array:
 				if (!std::holds_alternative<detail::ArrPtr>(*this))
@@ -208,7 +261,7 @@ namespace json {
 					static_cast<detail::ValueParent&>(*this) = json::Null();
 			}
 		}
-		bool fConvertable(json::Type t) const {
+		constexpr bool fConvertable(json::Type t) const {
 			switch (t) {
 			case json::Type::array:
 				return std::holds_alternative<detail::ArrPtr>(*this);
@@ -244,36 +297,36 @@ namespace json {
 		}
 
 	public:
-		bool isNull() const {
+		constexpr bool isNull() const {
 			return std::holds_alternative<json::Null>(*this);
 		}
-		bool isBoolean() const {
+		constexpr bool isBoolean() const {
 			return std::holds_alternative<json::Bool>(*this);
 		}
-		bool isStr() const {
+		constexpr bool isStr() const {
 			return std::holds_alternative<detail::StrPtr>(*this);
 		}
-		bool isUNum() const {
+		constexpr bool isUNum() const {
 			if (std::holds_alternative<json::UNum>(*this))
 				return true;
 			return (std::holds_alternative<json::INum>(*this) && std::get<json::INum>(*this) >= 0);
 		}
-		bool isINum() const {
+		constexpr bool isINum() const {
 			return std::holds_alternative<json::UNum>(*this) || std::holds_alternative<json::INum>(*this);
 		}
-		bool isReal() const {
+		constexpr bool isReal() const {
 			return std::holds_alternative<json::UNum>(*this) || std::holds_alternative<json::INum>(*this) || std::holds_alternative<json::Real>(*this);
 		}
-		bool isObj() const {
+		constexpr bool isObj() const {
 			return std::holds_alternative<detail::ObjPtr>(*this);
 		}
-		bool isArr() const {
+		constexpr bool isArr() const {
 			return std::holds_alternative<detail::ArrPtr>(*this);
 		}
-		bool is(json::Type t) const {
+		constexpr bool is(json::Type t) const {
 			return fConvertable(t);
 		}
-		json::Type type() const {
+		constexpr json::Type type() const {
 			if (std::holds_alternative<json::Bool>(*this))
 				return json::Type::boolean;
 			if (std::holds_alternative<detail::StrPtr>(*this))
@@ -292,36 +345,36 @@ namespace json {
 		}
 
 	public:
-		json::Bool& boolean() {
+		constexpr json::Bool& boolean() {
 			fEnsureType(json::Type::boolean);
 			return std::get<json::Bool>(*this);
 		}
 		json::Str& str() {
-			fEnsureType(Type::string);
+			fEnsureType(json::Type::string);
 			return *std::get<detail::StrPtr>(*this);
 		}
-		json::UNum& unum() {
-			fEnsureType(Type::unumber);
+		constexpr json::UNum& unum() {
+			fEnsureType(json::Type::unumber);
 			return std::get<json::UNum>(*this);
 		}
-		json::INum& inum() {
-			fEnsureType(Type::inumber);
+		constexpr json::INum& inum() {
+			fEnsureType(json::Type::inumber);
 			return std::get<json::INum>(*this);
 		}
-		json::Real& real() {
-			fEnsureType(Type::real);
+		constexpr json::Real& real() {
+			fEnsureType(json::Type::real);
 			return std::get<json::Real>(*this);
 		}
 		json::Arr& arr() {
-			fEnsureType(Type::array);
+			fEnsureType(json::Type::array);
 			return *std::get<detail::ArrPtr>(*this);
 		}
 		json::Obj& obj() {
-			fEnsureType(Type::object);
+			fEnsureType(json::Type::object);
 			return *std::get<detail::ObjPtr>(*this);
 		}
 
-		json::Bool boolean() const {
+		constexpr json::Bool boolean() const {
 			if (!std::holds_alternative<json::Bool>(*this))
 				throw JsonTypeException("json::Value is not a bool");
 			return std::get<json::Bool>(*this);
@@ -331,7 +384,7 @@ namespace json {
 				throw JsonTypeException("json::Value is not a string");
 			return *std::get<detail::StrPtr>(*this);
 		}
-		json::UNum unum() const {
+		constexpr json::UNum unum() const {
 			if (std::holds_alternative<json::INum>(*this) && std::get<json::INum>(*this) >= 0)
 				return json::UNum(std::get<json::INum>(*this));
 			if (std::holds_alternative<json::Real>(*this) && std::get<json::Real>(*this) >= 0)
@@ -341,7 +394,7 @@ namespace json {
 				throw JsonTypeException("json::Value is not an unsigned-number");
 			return std::get<json::UNum>(*this);
 		}
-		json::INum inum() const {
+		constexpr json::INum inum() const {
 			if (std::holds_alternative<json::UNum>(*this))
 				return json::INum(std::get<json::UNum>(*this));
 			if (std::holds_alternative<json::Real>(*this))
@@ -351,7 +404,7 @@ namespace json {
 				throw JsonTypeException("json::Value is not a signed-number");
 			return std::get<json::INum>(*this);
 		}
-		json::Real real() const {
+		constexpr json::Real real() const {
 			if (std::holds_alternative<json::UNum>(*this))
 				return json::Real(std::get<json::UNum>(*this));
 			if (std::holds_alternative<json::INum>(*this))
@@ -363,7 +416,7 @@ namespace json {
 		}
 		const json::Arr& arr() const {
 			if (!std::holds_alternative<detail::ArrPtr>(*this))
-				throw JsonTypeException("json::Value is not a array");
+				throw JsonTypeException("json::Value is not an array");
 			return *std::get<detail::ArrPtr>(*this);
 		}
 		const json::Obj& obj() const {
@@ -373,7 +426,7 @@ namespace json {
 		}
 
 		/* operations shared between array/string/objects (depends on type, zero for non-container types) */
-		size_t size() const {
+		constexpr size_t size() const {
 			if (std::holds_alternative<detail::ArrPtr>(*this))
 				return std::get<detail::ArrPtr>(*this)->size();
 			if (std::holds_alternative<detail::ObjPtr>(*this))
@@ -382,16 +435,16 @@ namespace json {
 				return std::get<detail::StrPtr>(*this)->size();
 			return 0;
 		}
-		size_t size(json::Type t) const {
-			if (t == Type::array && std::holds_alternative<detail::ArrPtr>(*this))
+		constexpr size_t size(json::Type t) const {
+			if (t == json::Type::array && std::holds_alternative<detail::ArrPtr>(*this))
 				return std::get<detail::ArrPtr>(*this)->size();
-			else if (t == Type::object && std::holds_alternative<detail::ObjPtr>(*this))
+			else if (t == json::Type::object && std::holds_alternative<detail::ObjPtr>(*this))
 				return std::get<detail::ObjPtr>(*this)->size();
-			else if (t == Type::string && std::holds_alternative<detail::StrPtr>(*this))
+			else if (t == json::Type::string && std::holds_alternative<detail::StrPtr>(*this))
 				return std::get<detail::StrPtr>(*this)->size();
 			return 0;
 		}
-		bool empty() const {
+		constexpr bool empty() const {
 			if (std::holds_alternative<detail::ArrPtr>(*this))
 				return std::get<detail::ArrPtr>(*this)->empty();
 			if (std::holds_alternative<detail::ObjPtr>(*this))
@@ -400,12 +453,12 @@ namespace json {
 				return std::get<detail::StrPtr>(*this)->empty();
 			return true;
 		}
-		bool empty(json::Type t) const {
-			if (t == Type::array && std::holds_alternative<detail::ArrPtr>(*this))
+		constexpr bool empty(json::Type t) const {
+			if (t == json::Type::array && std::holds_alternative<detail::ArrPtr>(*this))
 				return std::get<detail::ArrPtr>(*this)->empty();
-			else if (t == Type::object && std::holds_alternative<detail::ObjPtr>(*this))
+			else if (t == json::Type::object && std::holds_alternative<detail::ObjPtr>(*this))
 				return std::get<detail::ObjPtr>(*this)->empty();
-			else if (t == Type::string && std::holds_alternative<detail::StrPtr>(*this))
+			else if (t == json::Type::string && std::holds_alternative<detail::StrPtr>(*this))
 				return std::get<detail::StrPtr>(*this)->empty();
 			return true;
 		}
@@ -422,14 +475,14 @@ namespace json {
 			return it->second;
 		}
 		json::Value& operator[](const std::wstring& k) {
-			fEnsureType(Type::object);
+			fEnsureType(json::Type::object);
 			return (*std::get<detail::ObjPtr>(*this))[k];
 		}
 		void erase(const std::wstring& k) {
-			fEnsureType(Type::object);
+			fEnsureType(json::Type::object);
 			std::get<detail::ObjPtr>(*this)->erase(k);
 		}
-		bool contains(const std::wstring& k) const {
+		constexpr bool contains(const std::wstring& k) const {
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
 				return false;
 			const json::Obj& obj = *std::get<detail::ObjPtr>(*this);
@@ -442,7 +495,7 @@ namespace json {
 			auto it = obj.find(k);
 			return (it != obj.end() && it->second.fConvertable(t));
 		}
-		bool typedObject(json::Type t) const {
+		constexpr bool typedObject(json::Type t) const {
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
 				return false;
 			const json::Obj& obj = *std::get<detail::ObjPtr>(*this);
@@ -463,39 +516,39 @@ namespace json {
 			return arr[i];
 		}
 		json::Value& operator[](size_t i) {
-			fEnsureType(Type::array);
+			fEnsureType(json::Type::array);
 			json::Arr& arr = *std::get<detail::ArrPtr>(*this);
 			if (i >= arr.size())
 				throw JsonRangeException("Array index out of range");
 			return arr[i];
 		}
-		void push(const json::Value& v) {
-			fEnsureType(Type::array);
+		constexpr void push(const json::Value& v) {
+			fEnsureType(json::Type::array);
 			std::get<detail::ArrPtr>(*this)->push_back(v);
 		}
 		void pop() {
-			fEnsureType(Type::array);
+			fEnsureType(json::Type::array);
 			json::Arr& arr = *std::get<detail::ArrPtr>(*this);
 			if (!arr.empty())
 				arr.pop_back();
 		}
-		void resize(size_t sz) {
-			fEnsureType(Type::array);
+		constexpr void resize(size_t sz) {
+			fEnsureType(json::Type::array);
 			std::get<detail::ArrPtr>(*this)->resize(sz);
 		}
-		bool has(size_t i) const {
+		constexpr bool has(size_t i) const {
 			if (!std::holds_alternative<detail::ArrPtr>(*this))
 				return false;
 			const json::Arr& arr = *std::get<detail::ArrPtr>(*this);
 			return (i < arr.size());
 		}
-		bool has(size_t i, json::Type t) const {
+		constexpr bool has(size_t i, json::Type t) const {
 			if (!std::holds_alternative<detail::ArrPtr>(*this))
 				return false;
 			const json::Arr& arr = *std::get<detail::ArrPtr>(*this);
 			return (i < arr.size() && arr[i].fConvertable(t));
 		}
-		bool typedArray(json::Type t) const {
+		constexpr bool typedArray(json::Type t) const {
 			if (!std::holds_alternative<detail::ArrPtr>(*this))
 				return false;
 			const json::Arr& arr = *std::get<detail::ArrPtr>(*this);

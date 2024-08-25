@@ -3,11 +3,6 @@
 #include "json-common.h"
 
 namespace json {
-	/* exception thrown when decoding or parsing of a json-string fails */
-	struct JsonDeserializeException : public std::runtime_error {
-		JsonDeserializeException(const std::string& s) : runtime_error(s) {}
-	};
-
 	/* deserialization interprets \u escape-sequences as utf-16 encoding */
 	namespace detail {
 		enum class NumState : uint8_t {
