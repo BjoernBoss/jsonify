@@ -23,13 +23,13 @@ namespace json {
 		template <class SinkType, char32_t CodeError>
 		struct BuilderState {
 		public:
-			using ActSink = std::conditional_t<std::is_same_v<SinkType, detail::BuildAnyType>, std::unique_ptr<str::InheritSink>, SinkType&>;
-
-		public:
 			struct Instance {
 				bool closed = false;
 				bool object = false;
 			};
+
+		private:
+			using ActSink = std::conditional_t<std::is_same_v<SinkType, detail::BuildAnyType>, std::unique_ptr<str::InheritSink>, SinkType&>;
 
 		private:
 			detail::Serializer<ActSink, CodeError> pSerializer;
@@ -133,9 +133,6 @@ namespace json {
 			constexpr bool closed(size_t stamp) const {
 				return (stamp != pNextStamp || !pAwaitingValue);
 			}
-			constexpr bool done() const {
-				return (pActive.empty() && !pAwaitingValue);
-			}
 			constexpr void close(Instance* instance) {
 				if (instance->closed)
 					return;
@@ -216,23 +213,17 @@ namespace json {
 		constexpr ~Builder() = default;
 
 	public:
-		/* check if the overall built object is done (i.e. a root value has been fully completed) */
-		bool done() const {
-			return pBuilder->done();
-		}
-
-		/* check if this value is done (i.e. a valid value has been assigned to it/corresponding constructor has been created) */
-		bool closed() const {
-			return pBuilder->closed(pStamp);
-		}
-
-	public:
 		json::Builder<SinkType, CodeError>& operator=(const json::IsJson auto& v) {
 			Builder<SinkType, CodeError>::set(v);
 			return *this;
 		}
 
 	public:
+		/* check if this value is done (i.e. a valid value has been assigned to it/corresponding constructor has been created) */
+		bool closed() const {
+			return pBuilder->closed(pStamp);
+		}
+
 		/* assign the json-like object to this value (closes this object) */
 		void set(const json::IsJson auto& v) {
 			pBuilder->next(pStamp, v);
@@ -276,22 +267,16 @@ namespace json {
 		}
 
 	public:
-		/* check if the overall built object is done (i.e. a root value has been fully completed) */
-		bool done() const {
-			return pBuilder->done();
-		}
-
-		/* check if this object is done (i.e. the closing bracket has been written out) */
-		bool closed() const {
-			return pInstance->closed;
-		}
-
-	public:
 		json::Builder<SinkType, CodeError> operator[](const json::IsString auto& k) {
 			return ObjBuilder<SinkType, CodeError>::addVal(k);
 		}
 
 	public:
+		/* check if this object is done (i.e. the closing bracket has been written out) */
+		bool closed() const {
+			return pInstance->closed;
+		}
+
 		/* close any nested children and this object */
 		void close() {
 			pBuilder->close(pInstance.get());
@@ -348,17 +333,11 @@ namespace json {
 		}
 
 	public:
-		/* check if the overall built object is done (i.e. a root value has been fully completed) */
-		bool done() const {
-			return pBuilder->done();
-		}
-
 		/* check if this object is done (i.e. the closing bracket has been written out) */
 		bool closed() const {
 			return pInstance->closed;
 		}
 
-	public:
 		/* close any nested children and this object */
 		void close() {
 			pBuilder->close(pInstance.get());
@@ -391,15 +370,16 @@ namespace json {
 		}
 	};
 
-	/* construct a json builder-value to the given sink, using the corresponding indentation (indentation will be
-	*	sanitized to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced)
+	/* construct a json builder-value to the given sink, using the corresponding indentation, which writes all
+	*	values out immediately, preventing an intermediate state from being created (indentation will be sanitized
+	*	to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced)
 	*	Note: Must not outlive the sink as it stores a reference to it */
 	template <str::IsSink SinkType, char32_t CodeError = str::err::DefChar>
 	constexpr json::Builder<std::remove_cvref_t<SinkType>, CodeError> Build(SinkType&& sink, const std::wstring_view& indent = L"\t") {
 		using ActSink = std::remove_cvref_t<SinkType>;
 
-		/* setup the shared state and allocate the first value */
-		auto state = std::make_shared<detail::BuilderState<ActSink, CodeError>>(sink, indent);
+		/* setup the shared state and setup the root value */
+		auto state = std::make_shared<detail::BuilderState<ActSink, CodeError>>(std::forward<SinkType>(sink), indent);
 		return detail::BuildAccess::MakeValue<ActSink, CodeError>(state, state->allocFirst());
 	}
 
@@ -412,13 +392,17 @@ namespace json {
 	/* same as json::ArrBuilder, but uses inheritance to hide the underlying sink-type */
 	using AnyArrBuilder = json::ArrBuilder<detail::BuildAnyType, str::err::DefChar>;
 
-	/* construct a json any-builder-value to the given sink, using the corresponding indentation but hide the actual sink-type by using inheritance
-	*	internally (indentation will be sanitized to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced)
+	/* construct a json any-builder-value to the given sink, using the corresponding indentation but hide
+	*	the actual sink-type by using inheritance internally, and is otherwise equivalent to json::Build (uses CodeError = str::err::DefChar)
 	*	Note: Must not outlive the sink as it stores a reference to it */
 	template <str::IsSink SinkType>
 	constexpr json::AnyBuilder BuildAny(SinkType&& sink, const std::wstring_view& indent = L"\t") {
-		/* setup the wrapper to the sink and the shared state and allocate the first value */
-		std::unique_ptr<str::InheritSink> buildSink = std::make_unique<str::SinkImplementation<SinkType>>(sink);
+		using ActSink = std::remove_cvref_t<SinkType>;
+
+		/* wrap the sink to be held by the builder */
+		std::unique_ptr<str::InheritSink> buildSink = std::make_unique<str::SinkImplementation<ActSink>>(std::forward<SinkType>(sink));
+
+		/* setup the shared state and setup the root value */
 		auto state = std::make_shared<detail::BuilderState<detail::BuildAnyType, str::err::DefChar>>(std::move(buildSink), indent);
 		return detail::BuildAccess::MakeValue<detail::BuildAnyType, str::err::DefChar>(state, state->allocFirst());
 	}

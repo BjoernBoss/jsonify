@@ -67,7 +67,7 @@ namespace json {
 			}
 
 		public:
-			constexpr JsonDeserializer(StreamType&& stream, json::Value& out) : pDeserializer{ std::forward<StreamType>(stream) } {
+			constexpr JsonDeserializer(auto&& stream, json::Value& out) : pDeserializer{ std::forward<StreamType>(stream) } {
 				fValue(out);
 				pDeserializer.checkDone();
 			}
@@ -80,8 +80,10 @@ namespace json {
 	*	- for objects with multiple identical keys, the last occurring value will be used */
 	template <char32_t CodeError = str::err::DefChar>
 	constexpr json::Value Deserialize(str::IsStream auto&& stream) {
+		using StreamType = decltype(stream);
+
 		json::Value out;
-		detail::JsonDeserializer<decltype(stream), CodeError> _deserializer{ std::forward<decltype(stream)>(stream), out };
+		detail::JsonDeserializer<std::remove_reference_t<StreamType>, CodeError> _deserializer{ std::forward<StreamType>(stream), out };
 		return out;
 	}
 }
