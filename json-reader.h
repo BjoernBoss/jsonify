@@ -64,7 +64,8 @@ namespace json {
 			size_t pNextStamp = 0;
 
 		public:
-			constexpr ReaderState(ActStream&& stream) : pDeserializer{ std::forward<ActStream>(stream) } {}
+			template <class Type>
+			constexpr ReaderState(Type&& stream) : pDeserializer{ std::forward<Type>(stream) } {}
 			constexpr ~ReaderState() {
 				/* close all opened objects (will ensure the entire json is parsed properly) */
 				while (!pActive.empty())

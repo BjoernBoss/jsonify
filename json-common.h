@@ -2,7 +2,7 @@
 /* Copyright (c) 2024 Bjoern Boss Henrichsen */
 #pragma once
 
-#include <ustring/str.h>
+#include <ustring/ustring.h>
 
 #include <cinttypes>
 #include <variant>
@@ -21,8 +21,8 @@ namespace json {
 	using INum = int64_t;
 	using Real = long double;
 	using Bool = bool;
-	struct Null {};
 	using Str = std::wstring;
+	struct Null {};
 
 	enum class Type : uint8_t {
 		null,
