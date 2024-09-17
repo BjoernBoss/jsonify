@@ -47,10 +47,8 @@ namespace json {
 						return (pLastToken = cp);
 
 					/* check if the EOF has been reached */
-					if (len == 0) {
-						std::string err = str::Format<std::string>(u8"Unexpected <EOF> encountered at {}", pPosition);
-						throw json::JsonDeserializeException(err);
-					}
+					if (len == 0)
+						throw json::DeserializeException(L"Unexpected <EOF> encountered at ", pPosition);
 				}
 			}
 			constexpr void fConsume() {
@@ -79,13 +77,12 @@ namespace json {
 
 		private:
 			constexpr void fUnexpectedToken(char32_t token, const char8_t* expected) {
-				std::string err = str::Format<std::string>(u8"Unexpected token [{:e}] encountered at {} when {} was expected",
+				std::wstring err = str::Format<std::wstring>(u8"Unexpected token [{:e}] encountered at {} when {} was expected",
 					token, pPosition, expected);
-				throw json::JsonDeserializeException(err);
+				throw json::DeserializeException(err);
 			}
 			constexpr void fParseError(const char8_t* what) {
-				std::string err = str::Format<std::string>(u8"{} while parsing the json at {}", what, pPosition);
-				throw json::JsonDeserializeException(err);
+				throw json::DeserializeException(what, L" while parsing the json at ", pPosition);
 			}
 			constexpr void fCheckWord(const std::u32string_view& word) {
 				/* verify the remaining characters (first character is already verified to determine the type) */

@@ -9,7 +9,7 @@ The header includes a general representation of any json value `json::Value`, as
 The library uses the [`ustring`](https://github.com/BjoernBoss/ustring.git) header-only library to add support for any character encoding and proper decoding.
 
 ## Using the library
-This library is a header only library. Simply clone the repository, and include `<jsonify/jsonify.h>`
+This library is a header only library. Simply clone the repository, ensure that `./repos` is on the path (or at least that `<ustring/ustring.h>` can be resolved) and include `<jsonify/jsonify.h>`.
 
     $ git clone https://github.com/BjoernBoss/jsonify.git
 

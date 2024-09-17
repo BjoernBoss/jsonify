@@ -11,7 +11,6 @@
 #include <string>
 #include <utility>
 #include <limits>
-#include <stdexcept>
 #include <memory>
 #include <iterator>
 
@@ -36,32 +35,33 @@ namespace json {
 	};
 
 	/* exception thrown when accessing a constant json::Value as a certain type, which it is not */
-	class JsonTypeException : public std::runtime_error {
-	public:
-		JsonTypeException(const std::string& s) : runtime_error(s) {}
+	struct TypeException : public str::BuildException {
+		template <class... Args>
+		constexpr TypeException(const Args&... args) : str::BuildException{ args... } {}
 	};
 
 	/* exception thrown when accessing an out-of-range index for array-like accesses */
-	class JsonRangeException : public std::runtime_error {
-	public:
-		JsonRangeException(const std::string& s) : runtime_error(s) {}
+	struct RangeException : public str::BuildException {
+		template <class... Args>
+		constexpr RangeException(const Args&... args) : str::BuildException{ args... } {}
 	};
 
 	/* exception thrown when an already closed builder-object is being set again */
-	class JsonBuilderException : public std::runtime_error {
-	public:
-		JsonBuilderException(const std::string& s) : runtime_error(s) {}
+	struct BuilderException : public str::BuildException {
+		template <class... Args>
+		constexpr BuilderException(const Args&... args) : str::BuildException{ args... } {}
 	};
 
 	/* exception thrown when an already closed reader-object is being read again */
-	class JsonReaderException : public std::runtime_error {
-	public:
-		JsonReaderException(const std::string& s) : runtime_error(s) {}
+	struct ReaderException : public str::BuildException {
+		template <class... Args>
+		constexpr ReaderException(const Args&... args) : str::BuildException{ args... } {}
 	};
 
 	/* exception thrown when decoding or parsing of a json-string fails */
-	struct JsonDeserializeException : public std::runtime_error {
-		JsonDeserializeException(const std::string& s) : runtime_error(s) {}
+	struct DeserializeException : public str::BuildException {
+		template <class... Args>
+		constexpr DeserializeException(const Args&... args) : str::BuildException{ args... } {}
 	};
 
 	namespace detail {

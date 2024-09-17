@@ -149,7 +149,7 @@ namespace json {
 				while (index > 0 && pActive[index - 1] != instance)
 					--index;
 				if (index == 0)
-					throw json::JsonReaderException("Reader is not in an active state");
+					throw json::ReaderException(L"Reader is not in an active state");
 
 				/* close all other open objects until the current object has been reached */
 				while (pActive.size() > index) {
@@ -170,7 +170,7 @@ namespace json {
 			constexpr std::unique_ptr<Instance> open(size_t stamp, bool object) {
 				/* check if the object is the next in line and has not yet been fetched */
 				if (stamp != pNextStamp || pActive.back()->self.get() == 0)
-					throw json::JsonReaderException(object ? "Object has already been opened for reading" : "Array has already been opened for reading");
+					throw json::ReaderException(object ? L"Object has already been opened for reading" : L"Array has already been opened for reading");
 
 				/* fetch the instance-pointer */
 				std::unique_ptr<Instance> inst;
@@ -289,12 +289,12 @@ namespace json {
 	public:
 		constexpr json::Bool boolean() const {
 			if (!std::holds_alternative<json::Bool>(*this))
-				throw JsonTypeException("json::Reader is not a bool");
+				throw json::TypeException(L"json::Reader is not a bool");
 			return std::get<json::Bool>(*this);
 		}
 		constexpr const json::Str& str() const {
 			if (!std::holds_alternative<detail::StrReader>(*this))
-				throw JsonTypeException("json::Reader is not a string");
+				throw json::TypeException(L"json::Reader is not a string");
 			return *std::get<detail::StrReader>(*this);
 		}
 		constexpr json::UNum unum() const {
@@ -304,7 +304,7 @@ namespace json {
 				return json::UNum(std::get<json::Real>(*this));
 
 			if (!std::holds_alternative<json::UNum>(*this))
-				throw JsonTypeException("json::Reader is not an unsigned-number");
+				throw json::TypeException(L"json::Reader is not an unsigned-number");
 			return std::get<json::UNum>(*this);
 		}
 		constexpr json::INum inum() const {
@@ -314,7 +314,7 @@ namespace json {
 				return json::INum(std::get<json::Real>(*this));
 
 			if (!std::holds_alternative<json::INum>(*this))
-				throw JsonTypeException("json::Reader is not a signed-number");
+				throw json::TypeException(L"json::Reader is not a signed-number");
 			return std::get<json::INum>(*this);
 		}
 		constexpr json::Real real() const {
@@ -324,18 +324,18 @@ namespace json {
 				return json::Real(std::get<json::INum>(*this));
 
 			if (!std::holds_alternative<json::Real>(*this))
-				throw JsonTypeException("json::Reader is not a real");
+				throw json::TypeException(L"json::Reader is not a real");
 			return std::get<json::Real>(*this);
 		}
 		constexpr json::ArrReader<StreamType, CodeError> arr() const {
 			if (!std::holds_alternative<detail::ArrReference<StreamType, CodeError>>(*this))
-				throw JsonTypeException("json::Reader is not an array");
+				throw json::TypeException(L"json::Reader is not an array");
 			const detail::ArrReference<StreamType, CodeError>& arr = std::get<detail::ArrReference<StreamType, CodeError>>(*this);
 			return json::ArrReader<StreamType, CodeError>{ arr.state, std::move(arr.state->open(arr.stamp, false)) };
 		}
 		constexpr json::ObjReader<StreamType, CodeError> obj() const {
 			if (!std::holds_alternative<detail::ObjReference<StreamType, CodeError>>(*this))
-				throw JsonTypeException("json::Reader is not an object");
+				throw json::TypeException(L"json::Reader is not an object");
 			const detail::ObjReference<StreamType, CodeError>& arr = std::get<detail::ObjReference<StreamType, CodeError>>(*this);
 			return json::ObjReader<StreamType, CodeError>{ arr.state, std::move(arr.state->open(arr.stamp, true)) };
 		}

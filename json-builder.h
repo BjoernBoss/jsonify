@@ -59,7 +59,7 @@ namespace json {
 			}
 			constexpr void fCheckStamp(size_t stamp) {
 				if (stamp != pNextStamp || !pAwaitingValue)
-					throw json::JsonBuilderException("Builder is not in an active state");
+					throw json::BuilderException(L"Builder is not in an active state");
 				pAwaitingValue = false;
 			}
 			constexpr void fEnsureTopMost(Instance* instance) {
@@ -148,7 +148,7 @@ namespace json {
 			constexpr size_t allocNext(Instance* instance, const auto& key) {
 				/* check if this object is already closed and can therefore not capture the focus anymore and otherwise focus it */
 				if (instance->closed)
-					throw json::JsonBuilderException("Builder is not in an active state");
+					throw json::BuilderException(L"Builder is not in an active state");
 				fEnsureTopMost(instance);
 
 				/* write the key out and mark the value as awaited */
