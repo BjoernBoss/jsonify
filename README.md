@@ -19,11 +19,11 @@ This library is a header only library. Simply clone the repository, ensure that 
 
 
 ```C++
-    /* assign a direct json-value */
-    json::Value value = json::Obj{ { L"abc", 5 }, { L"def", json::Null() } };
+/* assign a direct json-value */
+json::Value value = json::Obj{ { L"abc", 5 }, { L"def", json::Null() } };
 
-    /* assign any json-like, which will be evaluated and assigned based on the type */
-    value[L"ghi"] = { u8"abc", u8"def", u8"ghi" };
+/* assign any json-like, which will be evaluated and assigned based on the type */
+value[L"ghi"] = { u8"abc", u8"def", u8"ghi" };
 ```
 
 ## [json::Serialize](json-serialize.h)
@@ -32,15 +32,15 @@ The library offers two serialization functions: `json::Serialize(value, indent)`
 
 
 ```C++
-    auto _s0 = json::Serialize<std::wstring>(json::Arr{ 1, 2, 3 });
-    auto _s1 = json::Serialize<std::u8string>(json::Obj{
-        { L"abc", json::Null() },
-        { L"def", json::Arr{ 5, 6, 7 } }
-    }, L"\t");
+auto _s0 = json::Serialize<std::wstring>(json::Arr{ 1, 2, 3 });
+auto _s1 = json::Serialize<std::u8string>(json::Obj{
+    { L"abc", json::Null() },
+    { L"def", json::Arr{ 5, 6, 7 } }
+}, L"\t");
 
-    std::string _s2;
-    json::SerializeTo(_s2, 50);
-    json::SerializeTo(std::cout, 50.0f);
+std::string _s2;
+json::SerializeTo(_s2, 50);
+json::SerializeTo(std::cout, 50.0f);
 ```
 
 ## [json::Deserialize](json-deserialize.h)
@@ -48,11 +48,11 @@ The library offers two serialization functions: `json::Serialize(value, indent)`
 The `json::Deserialize(stream)` function takes any character-stream (see [`ustring`](https://github.com/BjoernBoss/ustring.git)) and deserializes it to a `json::Value`. The `\u` escape sequences within strings are considered `utf-16` encodings. The function expects the entire stream of characters to be fully consumed, and will otherwise raise an exception. For duplicate keys, the last encountered value will be used.
 
 ```C++
-    std::ifstream file = /* ... */;
+std::ifstream file = /* ... */;
 
-    auto _v0 = json::Deserialize(file);
+auto _v0 = json::Deserialize(file);
 
-    auto _v1 = json::Deserialize(u"{ \"1\": 50, \"2\": null, \"3\": [] }");
+auto _v1 = json::Deserialize(u"{ \"1\": 50, \"2\": null, \"3\": [] }");
 ```
 
 ## [json::Builder](json-builder.h)
@@ -64,29 +64,29 @@ The builder will not prevent duplicate keys being written out to objects.
 Important: The builder must not outlive the sink, as it internally stores a reference to the sink.
 
 ```C++
-    std::ofstream file = /* ... */;
+std::ofstream file = /* ... */;
 
-    /* builder expects to be assigned any value */
-    json::Builder<std::ofstream> builder = json::Build(file, L"  ");
+/* builder expects to be assigned any value */
+json::Builder<std::ofstream> builder = json::Build(file, L"  ");
 
-    /* make the root builder an object */
-    auto obj = builder.obj();
-    obj[u8"abc"] = 50;
-    obj[u8"def"] = "abc";
-    auto arr = obj[L"ghi"].arr();
-    arr.push(1);
-    arr.push(50);
-    arr.push("x");
+/* make the root builder an object */
+auto obj = builder.obj();
+obj[u8"abc"] = 50;
+obj[u8"def"] = "abc";
+auto arr = obj[L"ghi"].arr();
+arr.push(1);
+arr.push(50);
+arr.push("x");
 
-    /* important: arr cannot be used anymore after this point, as it
-    *   will implicitly be closed once a root object is touched again */
-    obj["y"] = 2;
+/* important: arr cannot be used anymore after this point, as it
+*   will implicitly be closed once a root object is touched again */
+obj["y"] = 2;
 
-    /* assign any json-like value */
-    obj["z"] = json::Obj{ { L"abc", 1 }, { L"def", 2 } };
+/* assign any json-like value */
+obj["z"] = json::Obj{ { L"abc", 1 }, { L"def", 2 } };
 
-    /* explicit close, otherwise implicitly closed at destruction */
-    obj.close();
+/* explicit close, otherwise implicitly closed at destruction */
+obj.close();
 ```
 
 ## [json::Reader](json-reader.h)
@@ -98,24 +98,24 @@ Due to the nature of the reader, objects cannot be accessed in random order, and
 Important: The reader must not outlive the stream, as it internally stores a reference to the stream.
 
 ```C++
-    std::ifstream file = /* ... */;
+std::ifstream file = /* ... */;
 
-    /* reader which can be of any type */
-    json::Reader<std::ifstream> reader = json::Read(file);
+/* reader which can be of any type */
+json::Reader<std::ifstream> reader = json::Read(file);
 
-    /* check if the read is an object */
-    if (reader.isObj()) {
-        json::Value _t0;
-        std::wstring _t1;
+/* check if the read is an object */
+if (reader.isObj()) {
+    json::Value _t0;
+    std::wstring _t1;
 
-        /* iterate over all key/value pairs in the object and look for the expected keys */
-        for (const auto&[key, val] : reader.obj()) {
-            if (key == L"abc" && val.isStr())
-                _t1 = val.str();
-            else if(key == L"def")
-                _t0 = val.value();
-        }
+    /* iterate over all key/value pairs in the object and look for the expected keys */
+    for (const auto&[key, val] : reader.obj()) {
+        if (key == L"abc" && val.isStr())
+            _t1 = val.str();
+        else if(key == L"def")
+            _t0 = val.value();
     }
+}
 ```
 
 ## [json::AnyBuilder](json-builder.h), [json::AnyReader](json-reader.h)
