@@ -11,7 +11,7 @@ The library uses the [`ustring`](https://github.com/BjoernBoss/ustring.git) head
 ## Using the library
 This library is a header only library. Simply clone the repository, ensure that `./repos` is on the path (or at least that `<ustring/ustring.h>` can be resolved) and include `<jsonify/jsonify.h>`.
 
-    $ git clone https://github.com/BjoernBoss/jsonify.git
+    $ git clone https://github.com/BjoernBoss/jsonify.git --recursive
 
 ## [json::Value](json-value.h)
 
