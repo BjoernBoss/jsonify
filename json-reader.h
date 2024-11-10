@@ -343,7 +343,7 @@ namespace json {
 	public:
 		/* construct a json::Value from this object */
 		constexpr json::Value value() const {
-			return json::Value(*this);
+			return json::Value{ *this };
 		}
 	};
 
@@ -354,6 +354,7 @@ namespace json {
 		friend class json::Reader<StreamType, CodeError>;
 	public:
 		struct iterator {
+			friend class json::ArrReader<StreamType, CodeError>;
 		public:
 			using iterator_category = std::input_iterator_tag;
 			using value_type = const json::Reader<StreamType, CodeError>;
@@ -365,21 +366,26 @@ namespace json {
 			bool pEnd = false;
 
 		public:
+			constexpr iterator() = default;
+
+		private:
 			constexpr iterator(const ArrReader<StreamType, CodeError>& self, bool end = false) : pSelf{ self }, pEnd{ end } {}
-			reference operator*() const {
+
+		public:
+			constexpr reference operator*() const {
 				return pSelf.get();
 			}
-			pointer operator->() const {
+			constexpr pointer operator->() const {
 				return &pSelf.get();
 			}
-			iterator& operator++() {
+			constexpr iterator& operator++() {
 				pSelf.next();
 				return *this;
 			}
-			bool operator==(const iterator& it) const {
+			constexpr bool operator==(const iterator& it) const {
 				return (pSelf.pInstance == it.pSelf.pInstance && (pEnd == it.pEnd || pSelf.closed()));
 			}
-			bool operator!=(const iterator& it) const {
+			constexpr bool operator!=(const iterator& it) const {
 				return !(*this == it);
 			}
 		};
@@ -413,7 +419,7 @@ namespace json {
 		}
 
 	public:
-		/* fetch an iterator to this array (forwarding the iterator is equivalent to calling next() on this object) */
+		/* fetch an iterator to this array (advancing the iterator is equivalent to calling next() on this object) */
 		constexpr iterator begin() const {
 			return iterator{ *this, false };
 		}
@@ -453,6 +459,7 @@ namespace json {
 		friend class json::Reader<StreamType, CodeError>;
 	public:
 		struct iterator {
+			friend class json::ObjReader<StreamType, CodeError>;
 		public:
 			using iterator_category = std::input_iterator_tag;
 			using value_type = const std::pair<json::Str, json::Reader<StreamType, CodeError>>;
@@ -464,21 +471,26 @@ namespace json {
 			bool pEnd = false;
 
 		public:
+			constexpr iterator() = default;
+
+		private:
 			constexpr iterator(const ObjReader<StreamType, CodeError>& self, bool end = false) : pSelf{ self }, pEnd{ end } {}
-			reference operator*() const {
+
+		public:
+			constexpr reference operator*() const {
 				return pSelf.get();
 			}
-			pointer operator->() const {
+			constexpr pointer operator->() const {
 				return &pSelf.get();
 			}
-			iterator& operator++() {
+			constexpr iterator& operator++() {
 				pSelf.next();
 				return *this;
 			}
-			bool operator==(const iterator& it) const {
+			constexpr bool operator==(const iterator& it) const {
 				return (pSelf.pInstance == it.pSelf.pInstance && (pEnd == it.pEnd || pSelf.closed()));
 			}
-			bool operator!=(const iterator& it) const {
+			constexpr bool operator!=(const iterator& it) const {
 				return !(*this == it);
 			}
 		};
@@ -512,7 +524,7 @@ namespace json {
 		}
 
 	public:
-		/* fetch an iterator to this object (forwarding the iterator is equivalent to calling next() on this object) */
+		/* fetch an iterator to this object (advancing the iterator is equivalent to calling next() on this object) */
 		constexpr iterator begin() const {
 			return iterator{ *this, false };
 		}

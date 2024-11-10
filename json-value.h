@@ -158,8 +158,12 @@ namespace json {
 			if constexpr (json::IsObject<Type>) {
 				fEnsureType(json::Type::object);
 				json::Obj& obj = *std::get<detail::ObjPtr>(*this);
-				for (const auto& entry : val)
-					obj[entry.first] = json::Value(entry.second);
+				for (const auto& entry : val) {
+					if constexpr (std::convertible_to<decltype(entry.first), json::Str>)
+						obj[entry.first] = json::Value(entry.second);
+					else
+						obj[json::Str{ entry.first }] = json::Value(entry.second);
+				}
 			}
 			else if constexpr (json::IsString<Type>) {
 				fEnsureType(json::Type::string);
@@ -465,7 +469,13 @@ namespace json {
 			return true;
 		}
 
-		const json::Value& operator[](const std::wstring& k) const {
+		const json::Value& operator[](const json::Str& k) const {
+			return this->at(k);
+		}
+		json::Value& operator[](const json::Str& k) {
+			return this->at(k);
+		}
+		const json::Value& at(const json::Str& k) const {
 			static json::Value nullValue = json::Null();
 
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
@@ -476,21 +486,21 @@ namespace json {
 				return nullValue;
 			return it->second;
 		}
-		json::Value& operator[](const std::wstring& k) {
+		json::Value& at(const json::Str& k) {
 			fEnsureType(json::Type::object);
 			return (*std::get<detail::ObjPtr>(*this))[k];
 		}
-		void erase(const std::wstring& k) {
+		void erase(const json::Str& k) {
 			fEnsureType(json::Type::object);
 			std::get<detail::ObjPtr>(*this)->erase(k);
 		}
-		constexpr bool contains(const std::wstring& k) const {
+		constexpr bool contains(const json::Str& k) const {
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
 				return false;
 			const json::Obj& obj = *std::get<detail::ObjPtr>(*this);
 			return obj.find(k) != obj.end();
 		}
-		bool contains(const std::wstring& k, json::Type t) const {
+		bool contains(const json::Str& k, json::Type t) const {
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
 				return false;
 			const json::Obj& obj = *std::get<detail::ObjPtr>(*this);
@@ -510,6 +520,12 @@ namespace json {
 		}
 
 		const json::Value& operator[](size_t i) const {
+			return this->at(i);
+		}
+		json::Value& operator[](size_t i) {
+			return this->at(i);
+		}
+		const json::Value& at(size_t i) const {
 			if (!std::holds_alternative<detail::ArrPtr>(*this))
 				throw json::TypeException(L"json::Value is not a array");
 			const json::Arr& arr = *std::get<detail::ArrPtr>(*this);
@@ -517,7 +533,7 @@ namespace json {
 				throw json::RangeException(L"Array index out of range");
 			return arr[i];
 		}
-		json::Value& operator[](size_t i) {
+		json::Value& at(size_t i) {
 			fEnsureType(json::Type::array);
 			json::Arr& arr = *std::get<detail::ArrPtr>(*this);
 			if (i >= arr.size())

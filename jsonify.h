@@ -4,6 +4,7 @@
 
 #include "json-builder.h"
 #include "json-reader.h"
+#include "json-viewer.h"
 #include "json-serialize.h"
 #include "json-deserialize.h"
 #include "json-value.h"

@@ -13,6 +13,7 @@
 #include <limits>
 #include <memory>
 #include <iterator>
+#include <vector>
 
 namespace json {
 	/* primitive json-types */
@@ -21,6 +22,7 @@ namespace json {
 	using Real = long double;
 	using Bool = bool;
 	using Str = std::wstring;
+	using StrView = std::wstring_view;
 	struct Null {};
 
 	enum class Type : uint8_t {
