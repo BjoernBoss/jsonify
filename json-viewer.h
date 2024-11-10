@@ -344,7 +344,7 @@ namespace json {
 			}
 			return false;
 		}
-		bool contains(json::StrView k, json::Type t) const {
+		constexpr bool contains(json::StrView k, json::Type t) const {
 			if (!std::holds_alternative<detail::ObjViewObject>(*this))
 				return false;
 			detail::ObjViewObject obj = std::get<detail::ObjViewObject>(*this);

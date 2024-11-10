@@ -4,7 +4,7 @@
 
 Header only library written in `C++20` to add support for json serialization and deserialization as well as representation. Simply include [`jsonify.h`](jsonify.h) to add the entire functionality.
 
-The header includes a general representation of any json value `json::Value`, as well as options to serialize anything json-like or deserialize any string to a `json::Value`. Further, it adds `json::Builder` and `json::Reader` to serialize or deserialize any json in a continuous stream style.
+The header includes a general representation of any json value `json::Value`, as well as options to serialize anything json-like or deserialize any string to a `json::Value`. Further, it adds `json::Builder` and `json::Reader` to serialize or deserialize any json in a continuous stream style. Lastly, it also adds `json::Viewer`, as a reduced complexity, but pre-parsed json-value from a stream.
 
 The library uses the [`ustring`](https://github.com/BjoernBoss/ustring.git) header-only library to add support for any character encoding and proper decoding.
 
@@ -114,6 +114,30 @@ if (reader.isObj()) {
             _t1 = val.str();
         else if(key == L"def")
             _t0 = val.value();
+    }
+}
+```
+
+## [json::Viewer](json-viewer.h)
+
+The `json::Viewer` can be used to read a character-stream and validate and parse it into a randomly accessible json-like structure. This is suitable for data-structures, which need to be fully validated once, but will immediately be converted to another representation internally, while simultaneously allowing for random accesses to object-members. To instantiate a `json::Viewer`, the function `json::View(stream)` is provided. It sets up an internal state, which directly parses the entire character stream.
+
+The viewer allows objects to be accessed in random order, albeit slower than a `json::Value`, as it has a lookup-time of `O(n)`, and duplicate keys will all be preserved.
+
+```C++
+std::ifstream file = /* ... */;
+
+json::Viewer viewer = json::View(file);
+
+/* check if the read is an object */
+if (viewer.isObj()) {
+    json::Value _t0;
+    unsigned int _t1;
+
+    /* check if the necessary keys exist */
+    if (viewer.contains(L"abc", json::Type::string) && viewer.contains(L"def", json::Type::unumber)) {
+        _t0 = viewer[L"abc"];
+        _t1 = viewer[L"def"].unum();
     }
 }
 ```
