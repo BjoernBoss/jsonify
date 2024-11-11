@@ -625,12 +625,12 @@ namespace json {
 		}
 	};
 
-	json::ArrViewer json::Viewer::arr() const {
+	inline json::ArrViewer json::Viewer::arr() const {
 		if (!std::holds_alternative<detail::ArrViewObject>(*this))
 			throw json::TypeException(L"json::Viewer is not an array");
 		return json::ArrViewer{ pState, std::get<detail::ArrViewObject>(*this) };
 	}
-	json::ObjViewer json::Viewer::obj() const {
+	inline json::ObjViewer json::Viewer::obj() const {
 		if (!std::holds_alternative<detail::ObjViewObject>(*this))
 			throw json::TypeException(L"json::Viewer is not an object");
 		return json::ObjViewer{ pState, std::get<detail::ObjViewObject>(*this) };
@@ -638,7 +638,7 @@ namespace json {
 	constexpr json::Value json::Viewer::value() const {
 		return json::Value{ *this };
 	}
-	json::Viewer json::detail::ViewAccess::Make(const std::shared_ptr<detail::ViewState>& state, size_t index) {
+	inline json::Viewer json::detail::ViewAccess::Make(const std::shared_ptr<detail::ViewState>& state, size_t index) {
 		return json::Viewer{ state, index };
 	}
 
