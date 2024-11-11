@@ -193,7 +193,8 @@ namespace json {
 		};
 	}
 
-	/* [json::IsJson] json-reader of type [value], which can be used to read the current value (array or object-readers can only be opened once) */
+	/* [json::IsJson] json-reader of type [value], which can be used to read the current value (array or object-readers can only be opened once)
+	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	template <json::IsReadType StreamType, char32_t CodeError>
 	class Reader : private detail::ReaderParent<StreamType, CodeError> {
 		friend class detail::ReaderState<StreamType, CodeError>;
@@ -348,7 +349,8 @@ namespace json {
 	};
 
 	/* [json::IsJson] json-reader of type [array], which can be used to read the corresponding array value
-	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value) */
+	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value)
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
 	template <json::IsReadType StreamType, char32_t CodeError>
 	class ArrReader {
 		friend class json::Reader<StreamType, CodeError>;
@@ -453,7 +455,8 @@ namespace json {
 	};
 
 	/* [json::IsJson] json-reader of type [object], which can be used to read the corresponding object values
-	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value) */
+	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value)
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
 	template <json::IsReadType StreamType, char32_t CodeError>
 	class ObjReader {
 		friend class json::Reader<StreamType, CodeError>;
@@ -579,13 +582,16 @@ namespace json {
 		return state->initValue(state);
 	}
 
-	/* same as json::Reader, but uses inheritance to hide the underlying stream-type */
+	/* same as json::Reader, but uses inheritance to hide the underlying stream-type
+	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	using AnyReader = json::Reader<detail::ReadAnyType, str::err::DefChar>;
 
-	/* same as json::ObjReader, but uses inheritance to hide the underlying stream-type */
+	/* same as json::ObjReader, but uses inheritance to hide the underlying stream-type
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
 	using AnyObjReader = json::ObjReader<detail::ReadAnyType, str::err::DefChar>;
 
-	/* same as json::ArrReader, but uses inheritance to hide the underlying stream-type */
+	/* same as json::ArrReader, but uses inheritance to hide the underlying stream-type
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
 	using AnyArrReader = json::ArrReader<detail::ReadAnyType, str::err::DefChar>;
 
 	/* construct a json any-value-reader from the given stream, which hides the actual stream-type

@@ -195,7 +195,8 @@ namespace json {
 
 	/* json-builder of type [value], which can be used to set the currently expected value (if no value is
 	*	written to this object, defaults to null, object is volatile and can be passed around, and it will be
-	*	closed on close call, when a value is written/prepared, or when a parent object captures the builder) */
+	*	closed on close call, when a value is written/prepared, or when a parent object captures the builder)
+	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	template <json::IsBuildType SinkType, char32_t CodeError>
 	class Builder {
 		friend struct detail::BuildAccess;
@@ -246,7 +247,8 @@ namespace json {
 
 	/* json-builder of type [object], which can be used to write key-value pairs to the corresponding object and to the
 	*	sink (this builder does not prevent already used keys to be used again, it will write all used keys out, object
-	*	will be closed once close is called, the object is destructed, or a parent object captures the builder) */
+	*	will be closed once close is called, the object is destructed, or a parent object captures the builder)
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the building */
 	template <json::IsBuildType SinkType, char32_t CodeError>
 	class ObjBuilder {
 		friend struct detail::BuildAccess;
@@ -312,7 +314,8 @@ namespace json {
 	};
 
 	/* json-builder of type [array], which can be used to push values to the the corresponding array and to the sink
-	*	(array will be closed once close is called, the array is destructed, or a parent object captures the builder) */
+	*	(array will be closed once close is called, the array is destructed, or a parent object captures the builder)
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the building */
 	template <json::IsBuildType SinkType, char32_t CodeError>
 	class ArrBuilder {
 		friend struct detail::BuildAccess;
@@ -385,13 +388,16 @@ namespace json {
 		return detail::BuildAccess::MakeValue<ActSink, CodeError>(state, state->allocFirst());
 	}
 
-	/* same as json::Builder, but uses inheritance to hide the underlying sink-type */
+	/* same as json::Builder, but uses inheritance to hide the underlying sink-type
+	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	using AnyBuilder = json::Builder<detail::BuildAnyType, str::err::DefChar>;
 
-	/* same as json::ObjBuilder, but uses inheritance to hide the underlying sink-type */
+	/* same as json::ObjBuilder, but uses inheritance to hide the underlying sink-type
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the building */
 	using AnyObjBuilder = json::ObjBuilder<detail::BuildAnyType, str::err::DefChar>;
 
-	/* same as json::ArrBuilder, but uses inheritance to hide the underlying sink-type */
+	/* same as json::ArrBuilder, but uses inheritance to hide the underlying sink-type
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the building */
 	using AnyArrBuilder = json::ArrBuilder<detail::BuildAnyType, str::err::DefChar>;
 
 	/* construct a json any-builder-value to the given sink, using the corresponding indentation but hide

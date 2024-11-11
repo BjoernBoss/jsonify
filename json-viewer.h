@@ -128,7 +128,8 @@ namespace json {
 		};
 	}
 
-	/* [json::IsJson] json-view of type [value], which can be used to read the current value */
+	/* [json::IsJson] json-view of type [value], which can be used to read the current value
+	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	class Viewer : private detail::ViewEntry {
 		friend struct detail::ViewAccess;
 	private:
@@ -407,7 +408,8 @@ namespace json {
 		}
 	};
 
-	/* [json::IsJson] json-view of type [array], which can be used to read the corresponding array value */
+	/* [json::IsJson] json-view of type [array], which can be used to read the corresponding array value
+	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	class ArrViewer {
 		friend class json::Viewer;
 	public:
@@ -509,7 +511,8 @@ namespace json {
 		}
 	};
 
-	/* [json::IsJson] json-view of type [object], which can be used to read the corresponding object value */
+	/* [json::IsJson] json-view of type [object], which can be used to read the corresponding object value
+	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	class ObjViewer {
 		friend class json::Viewer;
 	public:
@@ -642,7 +645,7 @@ namespace json {
 	/* construct a json value-viewer from the given stream and ensure that the entire stream is a single valid json-value
 	*	- interprets \u escape-sequences as utf-16 encoding
 	*	- expects entire stream to be a single json value until the end with optional whitespace padding
-	*	- for objects with multiple identical keys, all occurring keys/values will be accessible */
+	*	- for objects with multiple identical keys, all occurring keys/values will be accessible, but the first will be returned upon accesses */
 	template <char32_t CodeError = str::err::DefChar>
 	constexpr json::Viewer View(str::IsStream auto&& stream) {
 		using StreamType = decltype(stream);
