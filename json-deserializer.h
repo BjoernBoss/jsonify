@@ -77,7 +77,7 @@ namespace json {
 
 		private:
 			constexpr void fUnexpectedToken(char32_t token, const char8_t* expected) {
-				std::wstring err = str::Format<std::wstring>(u8"Unexpected token [{:e}] encountered at {} when {} was expected",
+				std::wstring err = str::wd::Format(u8"Unexpected token [{:e}] encountered at {} when {} was expected",
 					token, pPosition, expected);
 				throw json::DeserializeException(err);
 			}
@@ -89,7 +89,7 @@ namespace json {
 				for (size_t i = 1; i < word.size(); ++i) {
 					char32_t c = fConsumeAndNext(false);
 					if (c != word[i])
-						fUnexpectedToken(c, str::Format<std::u8string>(u8"[{}] of [{}]", c, word).c_str());
+						fUnexpectedToken(c, str::u8::Format(u8"[{}] of [{}]", c, word).c_str());
 				}
 				fConsume();
 			}
