@@ -404,7 +404,7 @@ namespace json {
 	*	the actual sink-type by using inheritance internally, and is otherwise equivalent to json::Build (uses CodeError = str::err::DefChar)
 	*	Note: Must not outlive the sink as it stores a reference to it */
 	template <str::IsSink SinkType>
-	constexpr json::AnyBuilder BuildAny(SinkType&& sink, const std::wstring_view& indent = L"\t") {
+	json::AnyBuilder BuildAny(SinkType&& sink, const std::wstring_view& indent = L"\t") {
 		using ActSink = std::remove_cvref_t<SinkType>;
 
 		/* wrap the sink to be held by the builder */

@@ -81,7 +81,7 @@ namespace json {
 	*	- expects entire stream to be a single json value until the end with optional whitespace padding
 	*	- for objects with multiple identical keys, the last occurring value will be used */
 	template <char32_t CodeError = str::err::DefChar>
-	constexpr json::Value Deserialize(str::IsStream auto&& stream) {
+	json::Value Deserialize(str::IsStream auto&& stream) {
 		using StreamType = decltype(stream);
 
 		json::Value out;

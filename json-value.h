@@ -33,23 +33,23 @@ namespace json {
 	class Value : private detail::ValueParent {
 	public:
 		constexpr Value() : detail::ValueParent{ json::Null() } {}
-		constexpr Value(json::Value&&) = default;
+		Value(json::Value&&) = default;
 		constexpr Value(const json::Value& v) : detail::ValueParent{ json::Null() } {
 			*this = v;
 		}
-		constexpr Value(const json::Arr& v) : detail::ValueParent{ std::make_unique<json::Arr>(v) } {}
-		constexpr Value(json::Arr&& v) : detail::ValueParent{ std::make_unique<json::Arr>(std::move(v)) } {}
-		constexpr Value(const json::Obj& v) : detail::ValueParent{ std::make_unique<json::Obj>(v) } {}
-		constexpr Value(json::Obj&& v) : detail::ValueParent{ std::make_unique<json::Obj>(std::move(v)) } {}
-		constexpr Value(const json::Str& v) : detail::ValueParent{ std::make_unique<json::Str>(v) } {}
-		constexpr Value(json::Str&& v) : detail::ValueParent{ std::make_unique<json::Str>(std::move(v)) } {}
+		Value(const json::Arr& v) : detail::ValueParent{ std::make_unique<json::Arr>(v) } {}
+		Value(json::Arr&& v) : detail::ValueParent{ std::make_unique<json::Arr>(std::move(v)) } {}
+		Value(const json::Obj& v) : detail::ValueParent{ std::make_unique<json::Obj>(v) } {}
+		Value(json::Obj&& v) : detail::ValueParent{ std::make_unique<json::Obj>(std::move(v)) } {}
+		Value(const json::Str& v) : detail::ValueParent{ std::make_unique<json::Str>(v) } {}
+		Value(json::Str&& v) : detail::ValueParent{ std::make_unique<json::Str>(std::move(v)) } {}
 		constexpr Value(const json::IsJson auto& v) : detail::ValueParent{ json::Null() } {
 			using Type = decltype(v);
 			fAssignValue<Type>(std::forward<Type>(v));
 		}
 
 	public:
-		constexpr json::Value& operator=(json::Value&&) = default;
+		json::Value& operator=(json::Value&&) = default;
 		constexpr json::Value& operator=(const json::Value& v) {
 			if (std::holds_alternative<detail::ObjPtr>(v))
 				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Obj>(*std::get<detail::ObjPtr>(v));
@@ -69,27 +69,27 @@ namespace json {
 				static_cast<detail::ValueParent&>(*this) = std::get<json::UNum>(v);
 			return *this;
 		}
-		constexpr json::Value& operator=(const json::Arr& v) {
+		json::Value& operator=(const json::Arr& v) {
 			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Arr>(v);
 			return *this;
 		}
-		constexpr json::Value& operator=(json::Arr&& v) {
+		json::Value& operator=(json::Arr&& v) {
 			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Arr>(std::move(v));
 			return *this;
 		}
-		constexpr json::Value& operator=(const json::Obj& v) {
+		json::Value& operator=(const json::Obj& v) {
 			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Obj>(v);
 			return *this;
 		}
-		constexpr json::Value& operator=(json::Obj&& v) {
+		json::Value& operator=(json::Obj&& v) {
 			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Obj>(std::move(v));
 			return *this;
 		}
-		constexpr json::Value& operator=(const json::Str& v) {
+		json::Value& operator=(const json::Str& v) {
 			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Str>(v);
 			return *this;
 		}
-		constexpr json::Value& operator=(json::Str&& v) {
+		json::Value& operator=(json::Str&& v) {
 			static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Str>(std::move(v));
 			return *this;
 		}
@@ -507,7 +507,7 @@ namespace json {
 			auto it = obj.find(k);
 			return (it != obj.end() && it->second.fConvertable(t));
 		}
-		constexpr bool typedObject(json::Type t) const {
+		bool typedObject(json::Type t) const {
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
 				return false;
 			const json::Obj& obj = *std::get<detail::ObjPtr>(*this);

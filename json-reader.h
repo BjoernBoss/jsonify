@@ -73,7 +73,7 @@ namespace json {
 			}
 
 		private:
-			constexpr json::Reader<StreamType, CodeError> fValue(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& _this) {
+			json::Reader<StreamType, CodeError> fValue(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& _this) {
 				switch (pDeserializer.peekOrOpenNext()) {
 				case json::Type::unumber:
 				case json::Type::inumber:
@@ -343,7 +343,7 @@ namespace json {
 
 	public:
 		/* construct a json::Value from this object */
-		constexpr json::Value value() const {
+		json::Value value() const {
 			return json::Value{ *this };
 		}
 	};
@@ -602,7 +602,7 @@ namespace json {
 	*	by using inheritance internally, and is otherwise equivalent to json::Read (uses CodeError = str::err::DefChar)
 	*	Note: Must not outlive the sink as it stores a reference to it */
 	template <str::IsStream StreamType>
-	constexpr json::AnyReader ReadAny(StreamType&& stream) {
+	json::AnyReader ReadAny(StreamType&& stream) {
 		using ActStream = std::remove_reference_t<StreamType>;
 
 		/* wrap the stream to be held by the reader */

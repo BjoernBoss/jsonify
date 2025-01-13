@@ -137,10 +137,10 @@ namespace json {
 
 	public:
 		constexpr Viewer() : detail::ViewEntry{ json::Null() } {}
-		constexpr Viewer(json::Viewer&&) = default;
-		constexpr Viewer(const json::Viewer&) = default;
-		constexpr json::Viewer& operator=(json::Viewer&&) = default;
-		constexpr json::Viewer& operator=(const json::Viewer&) = default;
+		Viewer(json::Viewer&&) = default;
+		Viewer(const json::Viewer&) = default;
+		json::Viewer& operator=(json::Viewer&&) = default;
+		json::Viewer& operator=(const json::Viewer&) = default;
 
 	private:
 		Viewer(const std::shared_ptr<detail::ViewState>& state, size_t index) : pState{ state }, detail::ViewEntry{ state->entries[index] } {}
@@ -277,7 +277,7 @@ namespace json {
 
 	public:
 		/* construct a json::Value from this object */
-		constexpr json::Value value() const;
+		inline json::Value value() const;
 
 	public:
 		/* operations shared between array/string/objects (depends on type, zero for non-container types) */
@@ -478,10 +478,10 @@ namespace json {
 
 	public:
 		constexpr ArrViewer() = delete;
-		constexpr ArrViewer(json::ArrViewer&&) = default;
-		constexpr ArrViewer(const json::ArrViewer&) = default;
-		constexpr json::ArrViewer& operator=(json::ArrViewer&&) = default;
-		constexpr json::ArrViewer& operator=(const json::ArrViewer&) = default;
+		ArrViewer(json::ArrViewer&&) = default;
+		ArrViewer(const json::ArrViewer&) = default;
+		json::ArrViewer& operator=(json::ArrViewer&&) = default;
+		json::ArrViewer& operator=(const json::ArrViewer&) = default;
 
 	private:
 		ArrViewer(const std::shared_ptr<detail::ViewState>& state, const detail::ArrViewObject& self) : pState{ state }, pSelf{ self } {}
@@ -581,10 +581,10 @@ namespace json {
 
 	public:
 		constexpr ObjViewer() = delete;
-		constexpr ObjViewer(json::ObjViewer&&) = default;
-		constexpr ObjViewer(const json::ObjViewer&) = default;
-		constexpr json::ObjViewer& operator=(json::ObjViewer&&) = default;
-		constexpr json::ObjViewer& operator=(const json::ObjViewer&) = default;
+		ObjViewer(json::ObjViewer&&) = default;
+		ObjViewer(const json::ObjViewer&) = default;
+		json::ObjViewer& operator=(json::ObjViewer&&) = default;
+		json::ObjViewer& operator=(const json::ObjViewer&) = default;
 
 	private:
 		ObjViewer(const std::shared_ptr<detail::ViewState>& state, const detail::ObjViewObject& self) : pState{ state }, pSelf{ self } {}
@@ -635,7 +635,7 @@ namespace json {
 			throw json::TypeException(L"json::Viewer is not an object");
 		return json::ObjViewer{ pState, std::get<detail::ObjViewObject>(*this) };
 	}
-	constexpr json::Value json::Viewer::value() const {
+	inline json::Value json::Viewer::value() const {
 		return json::Value{ *this };
 	}
 	inline json::Viewer json::detail::ViewAccess::Make(const std::shared_ptr<detail::ViewState>& state, size_t index) {
@@ -647,7 +647,7 @@ namespace json {
 	*	- expects entire stream to be a single json value until the end with optional whitespace padding
 	*	- for objects with multiple identical keys, all occurring keys/values will be accessible, but the first will be returned upon accesses */
 	template <char32_t CodeError = str::err::DefChar>
-	constexpr json::Viewer View(str::IsStream auto&& stream) {
+	json::Viewer View(str::IsStream auto&& stream) {
 		using StreamType = decltype(stream);
 
 		std::shared_ptr<detail::ViewState> state = std::make_shared<detail::ViewState>();

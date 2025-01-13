@@ -19,7 +19,7 @@ namespace json {
 	/* primitive json-types */
 	using UNum = uint64_t;
 	using INum = int64_t;
-	using Real = long double;
+	using Real = double;
 	using Bool = bool;
 	using Str = std::wstring;
 	using StrView = std::wstring_view;
@@ -93,18 +93,22 @@ namespace json {
 	/* check if the type can be used as json-object, which is an iterator of pairs of strings and other values [values must implement json::IsJson] */
 	template <class Type>
 	concept IsObject = requires(const Type t) {
-		{ *t.begin() } -> detail::IsPair;
-		{ t.begin()->first } -> json::IsString;
-		{ ++t.begin() };
-		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
+		typename Type::iterator;
+		{ t.begin() } -> std::same_as<typename Type::iterator>;
+		{ t.end() } -> std::same_as<typename Type::iterator>;
+		{ ++std::declval<typename Type::iterator>() };
+		{ *std::declval<typename Type::iterator>() } -> detail::IsPair;
+		{ std::declval<typename Type::iterator>()->first } -> json::IsString;
 	};
 
 	/* check if the type can be used as json-array, which is an iterator of values [values must implement json::IsJson] */
 	template <class Type>
 	concept IsArray = !json::IsString<Type> && requires(const Type t) {
-		{ *t.begin() } -> detail::IsNotPair;
-		{ ++t.begin() };
-		{ *t.end() } -> std::same_as<decltype(*t.begin())>;
+		typename Type::iterator;
+		{ t.begin() } -> std::same_as<typename Type::iterator>;
+		{ t.end() } -> std::same_as<typename Type::iterator>;
+		{ ++std::declval<typename Type::iterator>() };
+		{ *std::declval<typename Type::iterator>() } -> detail::IsNotPair;
 	};
 
 	/* check if the type can be used as overall json-value, which must offer flags and corresponding values for every possible json-type */
