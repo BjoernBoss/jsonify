@@ -36,34 +36,40 @@ namespace json {
 		object
 	};
 
-	/* exception thrown when accessing a constant json::Value as a certain type, which it is not */
-	struct TypeException : public str::BuildException {
+	/* exception thrown when using the library in an invalid way */
+	struct Exception : public str::BuildException {
 		template <class... Args>
-		constexpr TypeException(const Args&... args) : str::BuildException{ args... } {}
+		constexpr Exception(const Args&... args) : str::BuildException{ args... } {}
+	};
+
+	/* exception thrown when accessing a constant json::Value as a certain type, which it is not */
+	struct TypeException : public json::Exception {
+		template <class... Args>
+		constexpr TypeException(const Args&... args) : json::Exception{ args... } {}
 	};
 
 	/* exception thrown when accessing an out-of-range index for array-like accesses */
-	struct RangeException : public str::BuildException {
+	struct RangeException : public json::Exception {
 		template <class... Args>
-		constexpr RangeException(const Args&... args) : str::BuildException{ args... } {}
+		constexpr RangeException(const Args&... args) : json::Exception{ args... } {}
 	};
 
 	/* exception thrown when an already closed builder-object is being set again */
-	struct BuilderException : public str::BuildException {
+	struct BuilderException : public json::Exception {
 		template <class... Args>
-		constexpr BuilderException(const Args&... args) : str::BuildException{ args... } {}
+		constexpr BuilderException(const Args&... args) : json::Exception{ args... } {}
 	};
 
 	/* exception thrown when an already closed reader-object is being read again */
-	struct ReaderException : public str::BuildException {
+	struct ReaderException : public json::Exception {
 		template <class... Args>
-		constexpr ReaderException(const Args&... args) : str::BuildException{ args... } {}
+		constexpr ReaderException(const Args&... args) : json::Exception{ args... } {}
 	};
 
 	/* exception thrown when decoding or parsing of a json-string fails */
-	struct DeserializeException : public str::BuildException {
+	struct DeserializeException : public json::Exception {
 		template <class... Args>
-		constexpr DeserializeException(const Args&... args) : str::BuildException{ args... } {}
+		constexpr DeserializeException(const Args&... args) : json::Exception{ args... } {}
 	};
 
 	namespace detail {
