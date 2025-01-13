@@ -159,7 +159,7 @@ namespace json {
 				/* verify the number, according to the json-number format */
 				pBuffer.clear();
 				while (true) {
-					char32_t c = fNextToken(false);
+					char32_t c = fNextToken<true>(false);
 
 					/* update the state-machine */
 					if (c == '-' && (state == NumState::preSign || state == NumState::preExpSign)) {
