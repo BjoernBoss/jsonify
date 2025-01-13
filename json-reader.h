@@ -364,28 +364,30 @@ namespace json {
 			using reference = value_type&;
 
 		private:
-			const ArrReader<StreamType, CodeError>& pSelf;
+			const ArrReader<StreamType, CodeError>* pSelf = 0;
 			bool pEnd = false;
 
 		public:
 			constexpr iterator() = default;
 
 		private:
-			constexpr iterator(const ArrReader<StreamType, CodeError>& self, bool end = false) : pSelf{ self }, pEnd{ end } {}
+			constexpr iterator(const ArrReader<StreamType, CodeError>& self, bool end = false) : pSelf{ &self }, pEnd{ end } {}
 
 		public:
 			constexpr reference operator*() const {
-				return pSelf.get();
+				return pSelf->get();
 			}
 			constexpr pointer operator->() const {
-				return &pSelf.get();
+				return &pSelf->get();
 			}
 			constexpr iterator& operator++() {
-				pSelf.next();
+				pSelf->next();
 				return *this;
 			}
 			constexpr bool operator==(const iterator& it) const {
-				return (pSelf.pInstance == it.pSelf.pInstance && (pEnd == it.pEnd || pSelf.closed()));
+				if (pSelf == 0 || it.pSelf == 0)
+					return (pSelf == it.pSelf);
+				return (pSelf->pInstance == it.pSelf->pInstance && (pEnd == it.pEnd || pSelf->closed()));
 			}
 			constexpr bool operator!=(const iterator& it) const {
 				return !(*this == it);
@@ -470,28 +472,30 @@ namespace json {
 			using reference = value_type&;
 
 		private:
-			const ObjReader<StreamType, CodeError>& pSelf;
+			const ObjReader<StreamType, CodeError>* pSelf = 0;
 			bool pEnd = false;
 
 		public:
 			constexpr iterator() = default;
 
 		private:
-			constexpr iterator(const ObjReader<StreamType, CodeError>& self, bool end = false) : pSelf{ self }, pEnd{ end } {}
+			constexpr iterator(const ObjReader<StreamType, CodeError>& self, bool end = false) : pSelf{ &self }, pEnd{ end } {}
 
 		public:
 			constexpr reference operator*() const {
-				return pSelf.get();
+				return pSelf->get();
 			}
 			constexpr pointer operator->() const {
-				return &pSelf.get();
+				return &pSelf->get();
 			}
 			constexpr iterator& operator++() {
-				pSelf.next();
+				pSelf->next();
 				return *this;
 			}
 			constexpr bool operator==(const iterator& it) const {
-				return (pSelf.pInstance == it.pSelf.pInstance && (pEnd == it.pEnd || pSelf.closed()));
+				if (pSelf == 0 || it.pSelf == 0)
+					return (pSelf == it.pSelf);
+				return (pSelf->pInstance == it.pSelf->pInstance && (pEnd == it.pEnd || pSelf->closed()));
 			}
 			constexpr bool operator!=(const iterator& it) const {
 				return !(*this == it);
