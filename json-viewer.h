@@ -416,8 +416,9 @@ namespace json {
 		struct iterator {
 			friend class json::ArrViewer;
 		public:
-			using iterator_category = std::input_iterator_tag;
+			using iterator_category = std::bidirectional_iterator_tag;
 			using value_type = const json::Viewer;
+			using difference_type = std::ptrdiff_t;
 			using pointer = value_type*;
 			using reference = value_type&;
 
@@ -471,6 +472,7 @@ namespace json {
 				return !(*this == it);
 			}
 		};
+		using const_iterator = iterator;
 
 	private:
 		std::shared_ptr<detail::ViewState> pState;
@@ -519,8 +521,9 @@ namespace json {
 		struct iterator {
 			friend class json::ObjViewer;
 		public:
-			using iterator_category = std::input_iterator_tag;
+			using iterator_category = std::bidirectional_iterator_tag;
 			using value_type = const std::pair<json::StrView, json::Viewer>;
+			using difference_type = std::ptrdiff_t;
 			using pointer = value_type*;
 			using reference = value_type&;
 
@@ -574,6 +577,7 @@ namespace json {
 				return !(*this == it);
 			}
 		};
+		using const_iterator = iterator;
 
 	private:
 		std::shared_ptr<detail::ViewState> pState;

@@ -34,8 +34,8 @@ namespace json {
 	public:
 		constexpr Value() : detail::ValueParent{ json::Null() } {}
 		Value(json::Value&&) = default;
-		constexpr Value(const json::Value& v) : detail::ValueParent{ json::Null() } {
-			*this = v;
+		Value(const json::Value& v) : detail::ValueParent{ json::Null() } {
+			fAssignSelf(v);
 		}
 		Value(const json::Arr& v) : detail::ValueParent{ std::make_unique<json::Arr>(v) } {}
 		Value(json::Arr&& v) : detail::ValueParent{ std::make_unique<json::Arr>(std::move(v)) } {}
@@ -50,23 +50,8 @@ namespace json {
 
 	public:
 		json::Value& operator=(json::Value&&) = default;
-		constexpr json::Value& operator=(const json::Value& v) {
-			if (std::holds_alternative<detail::ObjPtr>(v))
-				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Obj>(*std::get<detail::ObjPtr>(v));
-			else if (std::holds_alternative<detail::ArrPtr>(v))
-				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Arr>(*std::get<detail::ArrPtr>(v));
-			else if (std::holds_alternative<detail::StrPtr>(v))
-				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Str>(*std::get<detail::StrPtr>(v));
-			else if (std::holds_alternative<json::Bool>(v))
-				static_cast<detail::ValueParent&>(*this) = std::get<json::Bool>(v);
-			else if (std::holds_alternative<json::Null>(v))
-				static_cast<detail::ValueParent&>(*this) = json::Null();
-			else if (std::holds_alternative<json::Real>(v))
-				static_cast<detail::ValueParent&>(*this) = std::get<json::Real>(v);
-			else if (std::holds_alternative<json::INum>(v))
-				static_cast<detail::ValueParent&>(*this) = std::get<json::INum>(v);
-			else if (std::holds_alternative<json::UNum>(v))
-				static_cast<detail::ValueParent&>(*this) = std::get<json::UNum>(v);
+		json::Value& operator=(const json::Value& v) {
+			fAssignSelf(v);
 			return *this;
 		}
 		json::Value& operator=(const json::Arr& v) {
@@ -153,6 +138,24 @@ namespace json {
 		}
 
 	private:
+		void fAssignSelf(const json::Value& v) {
+			if (std::holds_alternative<detail::ObjPtr>(v))
+				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Obj>(*std::get<detail::ObjPtr>(v));
+			else if (std::holds_alternative<detail::ArrPtr>(v))
+				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Arr>(*std::get<detail::ArrPtr>(v));
+			else if (std::holds_alternative<detail::StrPtr>(v))
+				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Str>(*std::get<detail::StrPtr>(v));
+			else if (std::holds_alternative<json::Bool>(v))
+				static_cast<detail::ValueParent&>(*this) = std::get<json::Bool>(v);
+			else if (std::holds_alternative<json::Null>(v))
+				static_cast<detail::ValueParent&>(*this) = json::Null();
+			else if (std::holds_alternative<json::Real>(v))
+				static_cast<detail::ValueParent&>(*this) = std::get<json::Real>(v);
+			else if (std::holds_alternative<json::INum>(v))
+				static_cast<detail::ValueParent&>(*this) = std::get<json::INum>(v);
+			else if (std::holds_alternative<json::UNum>(v))
+				static_cast<detail::ValueParent&>(*this) = std::get<json::UNum>(v);
+		}
 		template <class Type>
 		constexpr void fAssignValue(Type&& val) {
 			if constexpr (json::IsObject<Type>) {

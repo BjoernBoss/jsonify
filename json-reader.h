@@ -358,8 +358,9 @@ namespace json {
 		struct iterator {
 			friend class json::ArrReader<StreamType, CodeError>;
 		public:
-			using iterator_category = std::input_iterator_tag;
+			using iterator_category = std::forward_iterator_tag;
 			using value_type = const json::Reader<StreamType, CodeError>;
+			using difference_type = std::ptrdiff_t;
 			using pointer = value_type*;
 			using reference = value_type&;
 
@@ -384,6 +385,10 @@ namespace json {
 				pSelf->next();
 				return *this;
 			}
+			constexpr iterator operator++(int) {
+				pSelf->next();
+				return *this;
+			}
 			constexpr bool operator==(const iterator& it) const {
 				if (pSelf == 0 || it.pSelf == 0)
 					return (pSelf == it.pSelf);
@@ -393,6 +398,7 @@ namespace json {
 				return !(*this == it);
 			}
 		};
+		using const_iterator = iterator;
 
 	private:
 		mutable std::shared_ptr<detail::ReaderState<StreamType, CodeError>> pState;
@@ -466,8 +472,9 @@ namespace json {
 		struct iterator {
 			friend class json::ObjReader<StreamType, CodeError>;
 		public:
-			using iterator_category = std::input_iterator_tag;
+			using iterator_category = std::forward_iterator_tag;
 			using value_type = const std::pair<json::Str, json::Reader<StreamType, CodeError>>;
+			using difference_type = std::ptrdiff_t;
 			using pointer = value_type*;
 			using reference = value_type&;
 
@@ -492,6 +499,10 @@ namespace json {
 				pSelf->next();
 				return *this;
 			}
+			constexpr iterator operator++(int) {
+				pSelf->next();
+				return *this;
+			}
 			constexpr bool operator==(const iterator& it) const {
 				if (pSelf == 0 || it.pSelf == 0)
 					return (pSelf == it.pSelf);
@@ -501,6 +512,7 @@ namespace json {
 				return !(*this == it);
 			}
 		};
+		using const_iterator = iterator;
 
 	private:
 		mutable std::shared_ptr<detail::ReaderState<StreamType, CodeError>> pState;

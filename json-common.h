@@ -72,16 +72,6 @@ namespace json {
 		constexpr DeserializeException(const Args&... args) : json::Exception{ args... } {}
 	};
 
-	namespace detail {
-		template <class Type>
-		concept IsPair = requires(const Type t) {
-			{ t.first };
-			{ t.second };
-		};
-		template <class Type>
-		concept IsNotPair = !detail::IsPair<Type>;
-	}
-
 	/* check if the type is a primitive json-value [null, bool, real, number] */
 	template <class Type>
 	concept IsPrimitive = std::same_as<std::remove_cvref_t<Type>, json::Null> || std::integral<std::remove_cvref_t<Type>> || std::floating_point<std::remove_cvref_t<Type>>;
@@ -90,26 +80,51 @@ namespace json {
 	template <class Type>
 	concept IsString = str::IsStr<Type>;
 
+	namespace detail {
+		template <class Type>
+		concept IsPair = requires(const Type t) {
+			{ t.first };
+			{ t.second };
+		};
+		template <class Type>
+		concept IsNotPair = !detail::IsPair<Type>;
+
+		/*
+		*	why this weird design instead of just testing for it being an iterator?
+		*		because em++ v3.1.40 cannot evaluate { *t.begin() } for json::Value::operator=,
+		*		as it tries to instantiate the std::map value_type and fails, because the type is incomplete,
+		*		when matching operator=(json::IsJson auto) with the type being json::Value - somehow skipping
+		*		operator=(json::Value&) because why use SFINAE...
+		*/
+		template <class Type>
+		concept IsObject = requires(const Type t) {
+			typename Type::const_iterator;
+			typename Type::const_iterator::value_type;
+			{ t.begin() } -> std::convertible_to<typename Type::const_iterator>;
+			{ t.end() } -> std::convertible_to<decltype(t.begin())>;
+			//{ *t.begin() };
+			{ std::declval<typename Type::const_iterator::value_type>() } -> detail::IsPair;
+			{ std::declval<typename Type::const_iterator::value_type>().first } -> json::IsString;
+		};
+
+		template <class Type>
+		concept IsArray = requires(const Type t) {
+			typename Type::const_iterator;
+			typename Type::const_iterator::value_type;
+			{ t.begin() } -> std::convertible_to<typename Type::const_iterator>;
+			{ t.end() } -> std::convertible_to<decltype(t.begin())>;
+			{ *t.begin() };
+			{ std::declval<typename Type::const_iterator::value_type>() } -> detail::IsNotPair;
+		};
+	}
+
 	/* check if the type can be used as json-object, which is an iterator of pairs of strings and other values [values must implement json::IsJson] */
 	template <class Type>
-	concept IsObject = requires(const Type t) {
-		typename Type::iterator;
-		{ t.begin() } -> std::same_as<typename Type::iterator>;
-		{ t.end() } -> std::same_as<typename Type::iterator>;
-		{ ++std::declval<typename Type::iterator>() };
-		{ *std::declval<typename Type::iterator>() } -> detail::IsPair;
-		{ std::declval<typename Type::iterator>()->first } -> json::IsString;
-	};
+	concept IsObject = detail::IsObject<std::remove_cvref_t<Type>>;
 
 	/* check if the type can be used as json-array, which is an iterator of values [values must implement json::IsJson] */
 	template <class Type>
-	concept IsArray = !json::IsString<Type> && requires(const Type t) {
-		typename Type::iterator;
-		{ t.begin() } -> std::same_as<typename Type::iterator>;
-		{ t.end() } -> std::same_as<typename Type::iterator>;
-		{ ++std::declval<typename Type::iterator>() };
-		{ *std::declval<typename Type::iterator>() } -> detail::IsNotPair;
-	};
+	concept IsArray = !json::IsString<Type> && detail::IsArray<std::remove_cvref_t<Type>>;
 
 	/* check if the type can be used as overall json-value, which must offer flags and corresponding values for every possible json-type */
 	template <class Type>
