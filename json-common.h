@@ -102,7 +102,8 @@ namespace json {
 			typename Type::const_iterator::value_type;
 			{ t.begin() } -> std::convertible_to<typename Type::const_iterator>;
 			{ t.end() } -> std::convertible_to<decltype(t.begin())>;
-			//{ *t.begin() };
+			//{ *t.begin() } -> detail::IsPair;
+			//{ (*t.begin()).first } -> json::IsString;
 			{ std::declval<typename Type::const_iterator::value_type>() } -> detail::IsPair;
 			{ std::declval<typename Type::const_iterator::value_type>().first } -> json::IsString;
 		};
@@ -113,8 +114,7 @@ namespace json {
 			typename Type::const_iterator::value_type;
 			{ t.begin() } -> std::convertible_to<typename Type::const_iterator>;
 			{ t.end() } -> std::convertible_to<decltype(t.begin())>;
-			{ *t.begin() };
-			{ std::declval<typename Type::const_iterator::value_type>() } -> detail::IsNotPair;
+			{ *t.begin() } -> detail::IsNotPair;
 		};
 	}
 
