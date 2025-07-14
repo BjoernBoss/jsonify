@@ -164,8 +164,10 @@ namespace json {
 				for (const auto& entry : val) {
 					if constexpr (std::convertible_to<decltype(entry.first), json::Str>)
 						obj[entry.first] = json::Value(entry.second);
-					else
-						obj[json::Str{ entry.first }] = json::Value(entry.second);
+					else {
+						json::Str key = str::TranscodeAll<json::Str, str::err::DefChar>(entry.first);
+						obj[key] = json::Value(entry.second);
+					}
 				}
 			}
 			else if constexpr (json::IsString<Type>) {
