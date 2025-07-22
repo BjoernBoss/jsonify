@@ -21,7 +21,7 @@ namespace json::detail {
 			/* add the newline and the indentation */
 			str::CodepointTo<CodeError>(pSink, U'\n');
 			for (size_t i = 0; i < pDepth; ++i)
-				str::TranscodeAllTo<CodeError>(pSink, pIndent);
+				str::FastcodeAllTo<CodeError>(pSink, pIndent);
 		}
 		constexpr void fJsonUEscape(uint32_t val) {
 			char32_t buf[6] = { U'\\', U'u', 0, 0, 0, 0 };
@@ -29,7 +29,7 @@ namespace json::detail {
 			/* create the escape-sequence and write it out */
 			for (size_t i = 0; i < 4; ++i)
 				buf[2 + i] = U"0123456789abcdef"[(val >> (12 - (i * 4))) & 0x0f];
-			str::TranscodeAllTo<CodeError>(pSink, std::u32string_view{ buf, 6 });
+			str::FastcodeAllTo<CodeError>(pSink, std::u32string_view{ buf, 6 });
 		}
 		constexpr void fString(const auto& s) {
 			str::CodepointTo<CodeError>(pSink, U'\"');
@@ -51,19 +51,19 @@ namespace json::detail {
 
 				/* check if its an escape sequence */
 				if (out[0] == u'\b')
-					str::TranscodeAllTo<CodeError>(pSink, U"\\b");
+					str::FastcodeAllTo<CodeError>(pSink, U"\\b");
 				else if (out[0] == u'\f')
-					str::TranscodeAllTo<CodeError>(pSink, U"\\f");
+					str::FastcodeAllTo<CodeError>(pSink, U"\\f");
 				else if (out[0] == u'\n')
-					str::TranscodeAllTo<CodeError>(pSink, U"\\n");
+					str::FastcodeAllTo<CodeError>(pSink, U"\\n");
 				else if (out[0] == u'\r')
-					str::TranscodeAllTo<CodeError>(pSink, U"\\r");
+					str::FastcodeAllTo<CodeError>(pSink, U"\\r");
 				else if (out[0] == u'\t')
-					str::TranscodeAllTo<CodeError>(pSink, U"\\t");
+					str::FastcodeAllTo<CodeError>(pSink, U"\\t");
 				else if (out[0] == u'\\')
-					str::TranscodeAllTo<CodeError>(pSink, U"\\\\");
+					str::FastcodeAllTo<CodeError>(pSink, U"\\\\");
 				else if (out[0] == u'\"')
-					str::TranscodeAllTo<CodeError>(pSink, U"\\\"");
+					str::FastcodeAllTo<CodeError>(pSink, U"\\\"");
 				else if (cp::prop::IsPrint(out[0], false))
 					str::CodepointTo<CodeError>(pSink, char32_t(out[0]));
 				else
@@ -87,9 +87,9 @@ namespace json::detail {
 
 			/* check if its one of the constant keywords */
 			if constexpr (std::same_as<VType, json::Bool>)
-				str::TranscodeAllTo<CodeError>(pSink, v ? U"true" : U"false");
+				str::FastcodeAllTo<CodeError>(pSink, v ? U"true" : U"false");
 			else if constexpr (std::same_as<VType, json::Null>)
-				str::TranscodeAllTo<CodeError>(pSink, U"null");
+				str::FastcodeAllTo<CodeError>(pSink, U"null");
 
 			/* check if its a float and limit it to ensure it will not be formatted to 'inf'/'nan'/... */
 			else if constexpr (std::floating_point<VType>) {
@@ -121,7 +121,7 @@ namespace json::detail {
 			/* add the newline, key, and the separator to the upcoming value */
 			fNewline();
 			fString(s);
-			str::TranscodeAllTo<CodeError>(pSink, pIndent.empty() ? U":" : U": ");
+			str::FastcodeAllTo<CodeError>(pSink, pIndent.empty() ? U":" : U": ");
 		}
 		constexpr void arrayValue() {
 			/* check if a separator needs to be added */
