@@ -165,7 +165,7 @@ namespace json {
 					if constexpr (std::convertible_to<decltype(entry.first), json::Str>)
 						obj[entry.first] = json::Value(entry.second);
 					else {
-						json::Str key = str::TranscodeAll<json::Str, str::err::DefChar>(entry.first);
+						json::Str key = str::FastcodeAll<json::Str, str::err::DefChar>(entry.first);
 						obj[key] = json::Value(entry.second);
 					}
 				}
@@ -173,7 +173,7 @@ namespace json {
 			else if constexpr (json::IsString<Type>) {
 				fEnsureType(json::Type::string);
 				json::Str& str = *std::get<detail::StrPtr>(*this);
-				str::TranscodeAllTo<str::err::DefChar>(str, val);
+				str::FastcodeAllTo<str::err::DefChar>(str, val);
 			}
 			else if constexpr (json::IsArray<Type>) {
 				fEnsureType(json::Type::array);

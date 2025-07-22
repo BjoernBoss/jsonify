@@ -39,7 +39,7 @@ namespace json::detail {
 			std::basic_string_view<str::StringChar<decltype(s)>> view{ s };
 			while (!view.empty()) {
 				/* transcode the next character to utf-16 */
-				auto [out, len] = str::GetTranscode<char16_t, CodeError>(view);
+				auto [out, len] = str::GetFastcode<char16_t, CodeError>(view);
 				view = view.substr(len);
 
 				/* check if there are 0 (error) or 2 (maximum) chars, in which case they can immediately be written out as \u-encoded sequences */
