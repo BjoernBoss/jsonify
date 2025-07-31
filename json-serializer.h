@@ -96,7 +96,7 @@ namespace json::detail {
 				VType val = v;
 				if (!std::isfinite(val))
 					val = (val < 0 ? std::numeric_limits<VType>::lowest() : std::numeric_limits<VType>::max());
-				str::FloatTo(pSink, val, str::FloatStyle::general);
+				str::FloatTo(pSink, val, { .fltStyle = str::FloatStyle::general });
 			}
 
 			/* check if its an integer */

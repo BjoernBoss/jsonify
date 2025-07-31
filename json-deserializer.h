@@ -200,16 +200,16 @@ namespace json {
 				str::ParsedNum result;
 				if (state == NumState::inDigits || state == NumState::postDigits) {
 					if (neg)
-						result = str::ParseNumTo(pBuffer, std::get<json::INum>(value = json::INum()), 10, str::PrefixMode::none);
+						result = str::ParseNumTo(pBuffer, std::get<json::INum>(value = json::INum()), { .radix = 10, .prefix = str::PrefixMode::none });
 					else
-						result = str::ParseNumTo(pBuffer, std::get<json::UNum>(value = json::UNum()), 10, str::PrefixMode::none);
+						result = str::ParseNumTo(pBuffer, std::get<json::UNum>(value = json::UNum()), { .radix = 10, .prefix = str::PrefixMode::none });
 				}
 				else
 					result.result = str::NumResult::range;
 
 				/* check if the value did not fit into an integer/was not an integer and parse it again as a float */
 				if (result.result == str::NumResult::range)
-					result = str::ParseNumTo(pBuffer, std::get<json::Real>(value = json::Real()), 10, str::PrefixMode::none);
+					result = str::ParseNumTo(pBuffer, std::get<json::Real>(value = json::Real()), { .radix = 10, .prefix = str::PrefixMode::none });
 
 				/* check if the entire number has been consumed */
 				if (result.consumed != pBuffer.size())
