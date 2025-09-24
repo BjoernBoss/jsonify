@@ -74,6 +74,42 @@ namespace json {
 				fConsume();
 				return fNextToken(skipWhiteSpace);
 			}
+			constexpr std::pair<char32_t, bool> fParseEscape() {
+				char32_t c = fConsumeAndNext(false);
+
+				/* unpack the escape sequence */
+				switch (c) {
+				case U'\"':
+				case U'\\':
+				case U'/':
+					return { c, false };
+				case U'b':
+					return { U'\b', false };
+				case U'f':
+					return { U'\f', false };
+				case U'n':
+					return { U'\n', false };
+				case U'r':
+					return { U'\r', false };
+				case U't':
+					return { U'\t', false };
+				case U'u':
+					break;
+				default:
+					fParseError(u8"Unknown escape-sequence in string encountered");
+				}
+
+				/* decode the four hexits */
+				uint32_t num = 0;
+				for (size_t j = 0; j < 4; j++) {
+					c = fConsumeAndNext(false);
+					uint32_t val = uint32_t(cp::ascii::GetRadix(c));
+					if (val >= 16)
+						fParseError(u8"Invalid [\\u] escape-sequence in string encountered");
+					num = (num << 4) + val;
+				}
+				return { char32_t(num), true };
+			}
 
 		private:
 			constexpr void fUnexpectedToken(char32_t token, const char8_t* expected) {
@@ -191,10 +227,8 @@ namespace json {
 
 				/* check if a valid final state has been entered */
 				detail::NumberValue value = json::UNum(0);
-				if (state == NumState::preSign || state == NumState::preDigits || state == NumState::preFraction || state == NumState::preExpSign || state == NumState::preExponent) {
+				if (state == NumState::preSign || state == NumState::preDigits || state == NumState::preFraction || state == NumState::preExpSign || state == NumState::preExponent)
 					fParseError(u8"Malformed json number encountered");
-					return value;
-				}
 
 				/* try to parse the number as integer (if its out-of-range for ints, parse it again as real) */
 				str::ParsedNum result;
@@ -225,9 +259,8 @@ namespace json {
 				}
 
 				/* read the tokens until the closing quotation mark is encountered */
+				c = fConsumeAndNext(false);
 				while (true) {
-					c = fConsumeAndNext(false);
-
 					/* check if the end has been encountered and consume the ending character */
 					if (c == U'\"') {
 						fConsume();
@@ -244,76 +277,40 @@ namespace json {
 					}
 
 					/* check if the token is wellformed and not an escape-sequence */
-					if (cp::prop::IsControl(c)) {
+					if (cp::prop::IsControl(c))
 						fParseError(u8"Control characters in string encountered");
-						return;
-					}
 					if (c != U'\\') {
 						str::CodepointTo<Error>(sink, c, 1);
+						c = fConsumeAndNext(false);
 						continue;
 					}
 
-					/* unpack the escape sequence */
-					c = fConsumeAndNext(false);
-					switch (c) {
-					case U'\"':
-					case U'\\':
-					case U'/':
-						str::CodepointTo<Error>(sink, c, 1);
-						break;
-					case U'b':
-						str::CodepointTo<Error>(sink, U'\b', 1);
-						break;
-					case U'f':
-						str::CodepointTo<Error>(sink, U'\f', 1);
-						break;
-					case U'n':
-						str::CodepointTo<Error>(sink, U'\n', 1);
-						break;
-					case U'r':
-						str::CodepointTo<Error>(sink, U'\r', 1);
-						break;
-					case U't':
-						str::CodepointTo<Error>(sink, U'\t', 1);
-						break;
-					case U'u':
-						break;
-					default:
-						fParseError(u8"Unknown escape-sequence in string encountered");
-						return;
-					}
-					if (c != U'u')
-						continue;
-
-					/* parse the potential utf-16 encoded \u escape sequence */
+					/* parse the escape sequence and check if its a \u encoding */
 					str::Encoded<char16_t> sequence;
-					for (size_t i = 0; i < sequence.max_size(); ++i) {
-						uint32_t num = 0;
+					while (true) {
+						const auto [val, uEscaped] = fParseEscape();
 
-						/* decode the unicode character */
-						for (size_t j = 0; j < 4; j++) {
+						/* check if the \u sequence was extended */
+						if (uEscaped) {
+							sequence.push_back(char16_t(val));
+
+							/* check if another \u is being started */
 							c = fConsumeAndNext(false);
-							uint32_t val = uint32_t(cp::ascii::GetRadix(c));
-							if (val >= 16)
-								fParseError(u8"Invalid [\\u] escape-sequence in string encountered");
-							num = (num << 4) + val;
-						}
-						sequence.push_back(char16_t(num));
-
-						/* try to decode the character or check if another character is
-						*	missing (cannot result in incomplete if max_size is encountered) */
-						auto [cp, len] = str::PartialCodepoint<Error>(sequence);
-						if (len != 0) {
-							if (cp != str::Invalid)
-								str::CodepointTo<Error>(sink, cp, 1);
-							break;
+							if (c == U'\\' && sequence.size() < sequence.max_size())
+								continue;
 						}
 
-						/* check for the next \u escape-sequence */
-						char32_t c0 = fConsumeAndNext(false);
-						char32_t c1 = fConsumeAndNext(false);
-						if (c0 != U'\\' || c1 != U'u')
-							fParseError(u8"Invalid [\\u] utf-16 surrogate-pair in string encountered");
+						/* fetch the next character for the primary string loop */
+						else
+							c = fConsumeAndNext(false);
+
+						/* flush out the current '\u' sequence out */
+						str::TranscodeAllTo<Error>(sink, sequence);
+
+						/* add the last cached escape-character (which occurred after the \u-sequence) */
+						if (!uEscaped)
+							str::CodepointTo<Error>(sink, val, 1);
+						break;
 					}
 				}
 			}
