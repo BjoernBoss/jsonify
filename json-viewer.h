@@ -39,10 +39,10 @@ namespace json {
 			}
 		};
 
-		template <class StreamType, char32_t CodeError>
+		template <class StreamType, str::CodeError Error>
 		class ViewDeserializer {
 		private:
-			detail::Deserializer<StreamType, CodeError> pDeserializer;
+			detail::Deserializer<StreamType, Error> pDeserializer;
 
 		private:
 			constexpr detail::ObjViewObject fObject(detail::ViewState& state) {
@@ -674,12 +674,12 @@ namespace json {
 	*	- interprets \u escape-sequences as utf-16 encoding
 	*	- expects entire stream to be a single json value until the end with optional whitespace padding
 	*	- for objects with multiple identical keys, all occurring keys/values will be accessible, but the first will be returned upon accesses */
-	template <char32_t CodeError = str::err::DefChar>
+	template <str::CodeError Error = str::CodeError::replace>
 	json::Viewer View(str::IsStream auto&& stream) {
 		using StreamType = decltype(stream);
 
 		std::shared_ptr<detail::ViewState> state = std::make_shared<detail::ViewState>();
-		detail::ViewDeserializer<std::remove_reference_t<StreamType>, CodeError> _deserializer{ std::forward<StreamType>(stream), *state.get() };
+		detail::ViewDeserializer<std::remove_reference_t<StreamType>, Error> _deserializer{ std::forward<StreamType>(stream), *state.get() };
 		return detail::ViewAccess::Make(state, 0);
 	}
 }

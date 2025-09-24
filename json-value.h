@@ -29,7 +29,7 @@ namespace json {
 	*	- uses json::Null/json::UNum/json::INum/json::Real/json::Bool/json::Arr/json::Str/json::Obj
 	*	- user-friendly and will convert to requested type whenever possible
 	*	- missing object-keys will either insert json::Null or return a constant json::Null
-	*	- uses str::err::DefChar for any string transcoding while assigning strings */
+	*	- uses str::CodeError::replace for any string transcoding while assigning strings */
 	class Value : private detail::ValueParent {
 	public:
 		constexpr Value() : detail::ValueParent{ json::Null() } {}
@@ -165,7 +165,7 @@ namespace json {
 					if constexpr (std::convertible_to<decltype(entry.first), json::Str>)
 						obj[entry.first] = json::Value(entry.second);
 					else {
-						json::Str key = str::FastcodeAll<json::Str, str::err::DefChar>(entry.first);
+						json::Str key = str::FastcodeAll<json::Str, str::CodeError::replace>(entry.first);
 						obj[key] = json::Value(entry.second);
 					}
 				}
@@ -173,7 +173,7 @@ namespace json {
 			else if constexpr (json::IsString<Type>) {
 				fEnsureType(json::Type::string);
 				json::Str& str = *std::get<detail::StrPtr>(*this);
-				str::FastcodeAllTo<str::err::DefChar>(str, val);
+				str::FastcodeAllTo<str::CodeError::replace>(str, val);
 			}
 			else if constexpr (json::IsArray<Type>) {
 				fEnsureType(json::Type::array);

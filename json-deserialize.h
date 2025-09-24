@@ -8,10 +8,10 @@
 
 namespace json {
 	namespace detail {
-		template <class StreamType, char32_t CodeError>
+		template <class StreamType, str::CodeError Error>
 		class JsonDeserializer {
 		private:
-			detail::Deserializer<StreamType, CodeError> pDeserializer;
+			detail::Deserializer<StreamType, Error> pDeserializer;
 
 		private:
 			constexpr void fObject(json::Obj& out) {
@@ -80,12 +80,12 @@ namespace json {
 	*	- interprets \u escape-sequences as utf-16 encoding
 	*	- expects entire stream to be a single json value until the end with optional whitespace padding
 	*	- for objects with multiple identical keys, the last occurring value will be used */
-	template <char32_t CodeError = str::err::DefChar>
+	template <str::CodeError Error = str::CodeError::replace>
 	json::Value Deserialize(str::IsStream auto&& stream) {
 		using StreamType = decltype(stream);
 
 		json::Value out;
-		detail::JsonDeserializer<std::remove_reference_t<StreamType>, CodeError> _deserializer{ std::forward<StreamType>(stream), out };
+		detail::JsonDeserializer<std::remove_reference_t<StreamType>, Error> _deserializer{ std::forward<StreamType>(stream), out };
 		return out;
 	}
 }

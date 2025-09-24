@@ -15,41 +15,41 @@ namespace json {
 	template <class Type>
 	concept IsReadType = str::IsStream<Type> || std::is_same_v<Type, detail::ReadAnyType>;
 
-	template <json::IsReadType StreamType, char32_t CodeError = str::err::DefChar>
+	template <json::IsReadType StreamType, str::CodeError Error = str::CodeError::replace>
 	class Reader;
-	template <json::IsReadType StreamType, char32_t CodeError = str::err::DefChar>
+	template <json::IsReadType StreamType, str::CodeError Error = str::CodeError::replace>
 	class ArrReader;
-	template <json::IsReadType StreamType, char32_t CodeError = str::err::DefChar>
+	template <json::IsReadType StreamType, str::CodeError Error = str::CodeError::replace>
 	class ObjReader;
 
 	namespace detail {
-		template <class StreamType, char32_t CodeError>
+		template <class StreamType, str::CodeError Error>
 		class ReaderState;
 
 		using StrReader = std::shared_ptr<json::Str>;
 
-		template <class StreamType, char32_t CodeError>
+		template <class StreamType, str::CodeError Error>
 		struct ArrReference {
-			std::shared_ptr<detail::ReaderState<StreamType, CodeError>> state;
+			std::shared_ptr<detail::ReaderState<StreamType, Error>> state;
 			size_t stamp = 0;
 		};
 
-		template <class StreamType, char32_t CodeError>
+		template <class StreamType, str::CodeError Error>
 		struct ObjReference {
-			std::shared_ptr<detail::ReaderState<StreamType, CodeError>> state;
+			std::shared_ptr<detail::ReaderState<StreamType, Error>> state;
 			size_t stamp = 0;
 		};
 
 		/* json-null first to default-construct as null */
-		template <class StreamType, char32_t CodeError>
-		using ReaderParent = std::variant<json::Null, json::UNum, json::INum, json::Real, json::Bool, detail::StrReader, detail::ArrReference<StreamType, CodeError>, detail::ObjReference<StreamType, CodeError>>;
+		template <class StreamType, str::CodeError Error>
+		using ReaderParent = std::variant<json::Null, json::UNum, json::INum, json::Real, json::Bool, detail::StrReader, detail::ArrReference<StreamType, Error>, detail::ObjReference<StreamType, Error>>;
 
-		template <class StreamType, char32_t CodeError>
+		template <class StreamType, str::CodeError Error>
 		class ReaderState {
 		public:
 			struct Instance {
 				/* explicit construction necessary, as default-constructor is private and cannot be accessed by std::pair */
-				std::pair<json::Str, json::Reader<StreamType, CodeError>> value = { L"", {} };
+				std::pair<json::Str, json::Reader<StreamType, Error>> value = { L"", {} };
 				std::unique_ptr<Instance> self;
 				bool object = false;
 				bool opened = false;
@@ -59,7 +59,7 @@ namespace json {
 			using ActStream = std::conditional_t<std::is_same_v<StreamType, detail::ReadAnyType>, std::unique_ptr<str::InheritStream>, StreamType>;
 
 		private:
-			detail::Deserializer<ActStream, CodeError> pDeserializer;
+			detail::Deserializer<ActStream, Error> pDeserializer;
 			std::vector<Instance*> pActive;
 			size_t pNextStamp = 0;
 
@@ -73,45 +73,45 @@ namespace json {
 			}
 
 		private:
-			json::Reader<StreamType, CodeError> fValue(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& _this) {
+			json::Reader<StreamType, Error> fValue(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& _this) {
 				switch (pDeserializer.peekOrOpenNext()) {
 				case json::Type::unumber:
 				case json::Type::inumber:
 				case json::Type::real: {
 					detail::NumberValue num = pDeserializer.readNumber();
 					if (std::holds_alternative<json::INum>(num))
-						return json::Reader<StreamType, CodeError>{ detail::ReaderParent<StreamType, CodeError>{ std::get<json::INum>(num) } };
+						return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::INum>(num) } };
 					if (std::holds_alternative<json::UNum>(num))
-						return json::Reader<StreamType, CodeError>{ detail::ReaderParent<StreamType, CodeError>{ std::get<json::UNum>(num) } };
-					return json::Reader<StreamType, CodeError>{ detail::ReaderParent<StreamType, CodeError>{ std::get<json::Real>(num) } };
+						return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::UNum>(num) } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::Real>(num) } };
 				}
 				case json::Type::boolean:
-					return json::Reader<StreamType, CodeError>{ detail::ReaderParent<StreamType, CodeError>{ pDeserializer.readBoolean() } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ pDeserializer.readBoolean() } };
 				case json::Type::string: {
 					detail::StrReader str = std::make_shared<json::Str>();
 					pDeserializer.readString(*str, false);
-					return json::Reader<StreamType, CodeError>{ detail::ReaderParent<StreamType, CodeError>{ str } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ str } };
 				}
 				case json::Type::array: {
 					std::unique_ptr<Instance> inst = std::make_unique<Instance>();
 					pActive.push_back(inst.get());
 					inst->object = false;
 					inst->self = std::move(inst);
-					return json::Reader<StreamType, CodeError>{ detail::ReaderParent<StreamType, CodeError>{ detail::ArrReference<StreamType, CodeError>{ _this, ++pNextStamp } } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ detail::ArrReference<StreamType, Error>{ _this, ++pNextStamp } } };
 				}
 				case json::Type::object: {
 					std::unique_ptr<Instance> inst = std::make_unique<Instance>();
 					pActive.push_back(inst.get());
 					inst->object = true;
 					inst->self = std::move(inst);
-					return json::Reader<StreamType, CodeError>{ detail::ReaderParent<StreamType, CodeError>{ detail::ObjReference<StreamType, CodeError>{ _this, ++pNextStamp } } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ detail::ObjReference<StreamType, Error>{ _this, ++pNextStamp } } };
 				}
 				case json::Type::null:
 				default:
-					return json::Reader<StreamType, CodeError>{ detail::ReaderParent<StreamType, CodeError>{ pDeserializer.readNull() } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ pDeserializer.readNull() } };
 				}
 			}
-			constexpr bool fReadNextValue(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& _this) {
+			constexpr bool fReadNextValue(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& _this) {
 				/* cache the instance-pointer as reading the next value might push to the active-stack */
 				Instance* inst = pActive.back();
 
@@ -143,7 +143,7 @@ namespace json {
 			}
 
 		public:
-			constexpr bool next(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& _this, Instance* instance) {
+			constexpr bool next(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& _this, Instance* instance) {
 				/* check if the instance is still in the active stack */
 				size_t index = pActive.size();
 				while (index > 0 && pActive[index - 1] != instance)
@@ -159,8 +159,8 @@ namespace json {
 				/* check if another value is encountered and read it */
 				return fReadNextValue(_this);
 			}
-			constexpr json::Reader<StreamType, CodeError> initValue(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& _this) {
-				json::Reader<StreamType, CodeError> value = fValue(_this);
+			constexpr json::Reader<StreamType, Error> initValue(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& _this) {
+				json::Reader<StreamType, Error> value = fValue(_this);
 
 				/* check if this is not an opened value and should therefore have consumed the entire source */
 				if (pActive.empty())
@@ -177,7 +177,7 @@ namespace json {
 				pActive.back()->self.swap(inst);
 				return std::move(inst);
 			}
-			constexpr void close(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& _this, Instance* instance) {
+			constexpr void close(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& _this, Instance* instance) {
 				/* check if the instance is still in the active stack */
 				size_t index = pActive.size();
 				while (index > 0 && pActive[index - 1] != instance)
@@ -195,18 +195,18 @@ namespace json {
 
 	/* [json::IsJson] json-reader of type [value], which can be used to read the current value (array or object-readers can only be opened once)
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
-	template <json::IsReadType StreamType, char32_t CodeError>
-	class Reader : private detail::ReaderParent<StreamType, CodeError> {
-		friend class detail::ReaderState<StreamType, CodeError>;
+	template <json::IsReadType StreamType, str::CodeError Error>
+	class Reader : private detail::ReaderParent<StreamType, Error> {
+		friend class detail::ReaderState<StreamType, Error>;
 	public:
-		constexpr Reader(json::Reader<StreamType, CodeError>&&) = default;
-		constexpr Reader(const json::Reader<StreamType, CodeError>&) = default;
-		constexpr json::Reader<StreamType, CodeError>& operator=(json::Reader<StreamType, CodeError>&&) = default;
-		constexpr json::Reader<StreamType, CodeError>& operator=(const json::Reader<StreamType, CodeError>&) = default;
+		constexpr Reader(json::Reader<StreamType, Error>&&) = default;
+		constexpr Reader(const json::Reader<StreamType, Error>&) = default;
+		constexpr json::Reader<StreamType, Error>& operator=(json::Reader<StreamType, Error>&&) = default;
+		constexpr json::Reader<StreamType, Error>& operator=(const json::Reader<StreamType, Error>&) = default;
 
 	private:
-		constexpr Reader() : detail::ReaderParent<StreamType, CodeError>{ json::Null() } {}
-		constexpr Reader(const detail::ReaderParent<StreamType, CodeError>& v) : detail::ReaderParent<StreamType, CodeError>{ v } {}
+		constexpr Reader() : detail::ReaderParent<StreamType, Error>{ json::Null() } {}
+		constexpr Reader(const detail::ReaderParent<StreamType, Error>& v) : detail::ReaderParent<StreamType, Error>{ v } {}
 
 	public:
 		constexpr bool isNull() const {
@@ -230,17 +230,17 @@ namespace json {
 			return std::holds_alternative<json::UNum>(*this) || std::holds_alternative<json::INum>(*this) || std::holds_alternative<json::Real>(*this);
 		}
 		constexpr bool isObj() const {
-			return std::holds_alternative<detail::ObjReference<StreamType, CodeError>>(*this);
+			return std::holds_alternative<detail::ObjReference<StreamType, Error>>(*this);
 		}
 		constexpr bool isArr() const {
-			return std::holds_alternative<detail::ArrReference<StreamType, CodeError>>(*this);
+			return std::holds_alternative<detail::ArrReference<StreamType, Error>>(*this);
 		}
 		constexpr bool is(json::Type t) const {
 			switch (t) {
 			case json::Type::array:
-				return std::holds_alternative<detail::ArrReference<StreamType, CodeError>>(*this);
+				return std::holds_alternative<detail::ArrReference<StreamType, Error>>(*this);
 			case json::Type::object:
-				return std::holds_alternative<detail::ObjReference<StreamType, CodeError>>(*this);
+				return std::holds_alternative<detail::ObjReference<StreamType, Error>>(*this);
 			case json::Type::string:
 				return std::holds_alternative<detail::StrReader>(*this);
 			case json::Type::unumber:
@@ -274,9 +274,9 @@ namespace json {
 				return json::Type::boolean;
 			if (std::holds_alternative<detail::StrReader>(*this))
 				return json::Type::string;
-			if (std::holds_alternative<detail::ObjReference<StreamType, CodeError>>(*this))
+			if (std::holds_alternative<detail::ObjReference<StreamType, Error>>(*this))
 				return json::Type::object;
-			if (std::holds_alternative<detail::ArrReference<StreamType, CodeError>>(*this))
+			if (std::holds_alternative<detail::ArrReference<StreamType, Error>>(*this))
 				return json::Type::array;
 			if (std::holds_alternative<json::Real>(*this))
 				return json::Type::real;
@@ -328,17 +328,17 @@ namespace json {
 				throw json::TypeException(L"json::Reader is not a real");
 			return std::get<json::Real>(*this);
 		}
-		constexpr json::ArrReader<StreamType, CodeError> arr() const {
-			if (!std::holds_alternative<detail::ArrReference<StreamType, CodeError>>(*this))
+		constexpr json::ArrReader<StreamType, Error> arr() const {
+			if (!std::holds_alternative<detail::ArrReference<StreamType, Error>>(*this))
 				throw json::TypeException(L"json::Reader is not an array");
-			const detail::ArrReference<StreamType, CodeError>& arr = std::get<detail::ArrReference<StreamType, CodeError>>(*this);
-			return json::ArrReader<StreamType, CodeError>{ arr.state, std::move(arr.state->open(arr.stamp, false)) };
+			const detail::ArrReference<StreamType, Error>& arr = std::get<detail::ArrReference<StreamType, Error>>(*this);
+			return json::ArrReader<StreamType, Error>{ arr.state, std::move(arr.state->open(arr.stamp, false)) };
 		}
-		constexpr json::ObjReader<StreamType, CodeError> obj() const {
-			if (!std::holds_alternative<detail::ObjReference<StreamType, CodeError>>(*this))
+		constexpr json::ObjReader<StreamType, Error> obj() const {
+			if (!std::holds_alternative<detail::ObjReference<StreamType, Error>>(*this))
 				throw json::TypeException(L"json::Reader is not an object");
-			const detail::ObjReference<StreamType, CodeError>& arr = std::get<detail::ObjReference<StreamType, CodeError>>(*this);
-			return json::ObjReader<StreamType, CodeError>{ arr.state, std::move(arr.state->open(arr.stamp, true)) };
+			const detail::ObjReference<StreamType, Error>& arr = std::get<detail::ObjReference<StreamType, Error>>(*this);
+			return json::ObjReader<StreamType, Error>{ arr.state, std::move(arr.state->open(arr.stamp, true)) };
 		}
 
 	public:
@@ -351,28 +351,28 @@ namespace json {
 	/* [json::IsJson] json-reader of type [array], which can be used to read the corresponding array value
 	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value)
 	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
-	template <json::IsReadType StreamType, char32_t CodeError>
+	template <json::IsReadType StreamType, str::CodeError Error>
 	class ArrReader {
-		friend class json::Reader<StreamType, CodeError>;
+		friend class json::Reader<StreamType, Error>;
 	public:
 		struct iterator {
-			friend class json::ArrReader<StreamType, CodeError>;
+			friend class json::ArrReader<StreamType, Error>;
 		public:
 			using iterator_category = std::forward_iterator_tag;
-			using value_type = const json::Reader<StreamType, CodeError>;
+			using value_type = const json::Reader<StreamType, Error>;
 			using difference_type = std::ptrdiff_t;
 			using pointer = value_type*;
 			using reference = value_type&;
 
 		private:
-			const ArrReader<StreamType, CodeError>* pSelf = 0;
+			const ArrReader<StreamType, Error>* pSelf = 0;
 			bool pEnd = false;
 
 		public:
 			constexpr iterator() = default;
 
 		private:
-			constexpr iterator(const ArrReader<StreamType, CodeError>& self, bool end = false) : pSelf{ &self }, pEnd{ end } {}
+			constexpr iterator(const ArrReader<StreamType, Error>& self, bool end = false) : pSelf{ &self }, pEnd{ end } {}
 
 		public:
 			constexpr reference operator*() const {
@@ -401,15 +401,15 @@ namespace json {
 		using const_iterator = iterator;
 
 	private:
-		mutable std::shared_ptr<detail::ReaderState<StreamType, CodeError>> pState;
-		std::unique_ptr<typename detail::ReaderState<StreamType, CodeError>::Instance> pInstance;
+		mutable std::shared_ptr<detail::ReaderState<StreamType, Error>> pState;
+		std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance> pInstance;
 
 	public:
 		constexpr ArrReader() = delete;
-		constexpr ArrReader(json::ArrReader<StreamType, CodeError>&&) = default;
-		constexpr ArrReader(const json::ArrReader<StreamType, CodeError>&) = delete;
-		constexpr json::ArrReader<StreamType, CodeError>& operator=(json::ArrReader<StreamType, CodeError>&&) = default;
-		constexpr json::ArrReader<StreamType, CodeError>& operator=(const json::ArrReader<StreamType, CodeError>&) = delete;
+		constexpr ArrReader(json::ArrReader<StreamType, Error>&&) = default;
+		constexpr ArrReader(const json::ArrReader<StreamType, Error>&) = delete;
+		constexpr json::ArrReader<StreamType, Error>& operator=(json::ArrReader<StreamType, Error>&&) = default;
+		constexpr json::ArrReader<StreamType, Error>& operator=(const json::ArrReader<StreamType, Error>&) = delete;
 		constexpr ~ArrReader() {
 			if (pState.get() != 0)
 				pState->close(pState, pInstance.get());
@@ -424,7 +424,7 @@ namespace json {
 		}
 
 	private:
-		constexpr ArrReader(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& state, std::unique_ptr<typename detail::ReaderState<StreamType, CodeError>::Instance>&& inst) : pState{ state }, pInstance{ std::move(inst) } {
+		constexpr ArrReader(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& state, std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance>&& inst) : pState{ state }, pInstance{ std::move(inst) } {
 			fNext();
 		}
 
@@ -457,7 +457,7 @@ namespace json {
 		}
 
 		/* read the current value (only if the reader is not marked as closed()) */
-		constexpr const json::Reader<StreamType, CodeError>& get() const {
+		constexpr const json::Reader<StreamType, Error>& get() const {
 			return pInstance->value.second;
 		}
 	};
@@ -465,28 +465,28 @@ namespace json {
 	/* [json::IsJson] json-reader of type [object], which can be used to read the corresponding object values
 	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value)
 	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
-	template <json::IsReadType StreamType, char32_t CodeError>
+	template <json::IsReadType StreamType, str::CodeError Error>
 	class ObjReader {
-		friend class json::Reader<StreamType, CodeError>;
+		friend class json::Reader<StreamType, Error>;
 	public:
 		struct iterator {
-			friend class json::ObjReader<StreamType, CodeError>;
+			friend class json::ObjReader<StreamType, Error>;
 		public:
 			using iterator_category = std::forward_iterator_tag;
-			using value_type = const std::pair<json::Str, json::Reader<StreamType, CodeError>>;
+			using value_type = const std::pair<json::Str, json::Reader<StreamType, Error>>;
 			using difference_type = std::ptrdiff_t;
 			using pointer = value_type*;
 			using reference = value_type&;
 
 		private:
-			const ObjReader<StreamType, CodeError>* pSelf = 0;
+			const ObjReader<StreamType, Error>* pSelf = 0;
 			bool pEnd = false;
 
 		public:
 			constexpr iterator() = default;
 
 		private:
-			constexpr iterator(const ObjReader<StreamType, CodeError>& self, bool end = false) : pSelf{ &self }, pEnd{ end } {}
+			constexpr iterator(const ObjReader<StreamType, Error>& self, bool end = false) : pSelf{ &self }, pEnd{ end } {}
 
 		public:
 			constexpr reference operator*() const {
@@ -515,15 +515,15 @@ namespace json {
 		using const_iterator = iterator;
 
 	private:
-		mutable std::shared_ptr<detail::ReaderState<StreamType, CodeError>> pState;
-		std::unique_ptr<typename detail::ReaderState<StreamType, CodeError>::Instance> pInstance;
+		mutable std::shared_ptr<detail::ReaderState<StreamType, Error>> pState;
+		std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance> pInstance;
 
 	public:
 		constexpr ObjReader() = delete;
-		constexpr ObjReader(json::ObjReader<StreamType, CodeError>&&) = default;
-		constexpr ObjReader(const json::ObjReader<StreamType, CodeError>&) = delete;
-		constexpr json::ObjReader<StreamType, CodeError>& operator=(json::ObjReader<StreamType, CodeError>&&) = default;
-		constexpr json::ObjReader<StreamType, CodeError>& operator=(const json::ObjReader<StreamType, CodeError>&) = delete;
+		constexpr ObjReader(json::ObjReader<StreamType, Error>&&) = default;
+		constexpr ObjReader(const json::ObjReader<StreamType, Error>&) = delete;
+		constexpr json::ObjReader<StreamType, Error>& operator=(json::ObjReader<StreamType, Error>&&) = default;
+		constexpr json::ObjReader<StreamType, Error>& operator=(const json::ObjReader<StreamType, Error>&) = delete;
 		constexpr ~ObjReader() {
 			if (pState.get() != 0)
 				pState->close(pState, pInstance.get());
@@ -538,7 +538,7 @@ namespace json {
 		}
 
 	private:
-		constexpr ObjReader(const std::shared_ptr<detail::ReaderState<StreamType, CodeError>>& state, std::unique_ptr<typename detail::ReaderState<StreamType, CodeError>::Instance>&& inst) : pState{ state }, pInstance{ std::move(inst) } {
+		constexpr ObjReader(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& state, std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance>&& inst) : pState{ state }, pInstance{ std::move(inst) } {
 			fNext();
 		}
 
@@ -576,12 +576,12 @@ namespace json {
 		}
 
 		/* read the current value (only if the reader is not marked as closed()) */
-		constexpr const json::Reader<StreamType, CodeError>& value() const {
+		constexpr const json::Reader<StreamType, Error>& value() const {
 			return pInstance->value;
 		}
 
 		/* read the current value (only if the reader is not marked as closed()) */
-		constexpr const std::pair<json::Str, json::Reader<StreamType, CodeError>>& get() const {
+		constexpr const std::pair<json::Str, json::Reader<StreamType, Error>>& get() const {
 			return pInstance->value;
 		}
 	};
@@ -589,29 +589,29 @@ namespace json {
 	/* construct a json value-reader from the given stream and ensure that the entire stream is a single valid
 	*	json-value and parse and validate the json along reading it instead of parsing it in its entirety beforehand
 	*	Note: Must not outlive the stream as it may store a reference to it */
-	template <str::IsStream StreamType, char32_t CodeError = str::err::DefChar>
-	constexpr json::Reader<std::remove_reference_t<StreamType>, CodeError> Read(StreamType&& stream) {
+	template <str::IsStream StreamType, str::CodeError Error = str::CodeError::replace>
+	constexpr json::Reader<std::remove_reference_t<StreamType>, Error> Read(StreamType&& stream) {
 		using ActStream = std::remove_reference_t<StreamType>;
 
 		/* setup the first state and fetch the initial value */
-		auto state = std::make_shared<detail::ReaderState<ActStream, CodeError>>(std::forward<StreamType>(stream));
+		auto state = std::make_shared<detail::ReaderState<ActStream, Error>>(std::forward<StreamType>(stream));
 		return state->initValue(state);
 	}
 
 	/* same as json::Reader, but uses inheritance to hide the underlying stream-type
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
-	using AnyReader = json::Reader<detail::ReadAnyType, str::err::DefChar>;
+	using AnyReader = json::Reader<detail::ReadAnyType, str::CodeError::replace>;
 
 	/* same as json::ObjReader, but uses inheritance to hide the underlying stream-type
 	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
-	using AnyObjReader = json::ObjReader<detail::ReadAnyType, str::err::DefChar>;
+	using AnyObjReader = json::ObjReader<detail::ReadAnyType, str::CodeError::replace>;
 
 	/* same as json::ArrReader, but uses inheritance to hide the underlying stream-type
 	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
-	using AnyArrReader = json::ArrReader<detail::ReadAnyType, str::err::DefChar>;
+	using AnyArrReader = json::ArrReader<detail::ReadAnyType, str::CodeError::replace>;
 
 	/* construct a json any-value-reader from the given stream, which hides the actual stream-type
-	*	by using inheritance internally, and is otherwise equivalent to json::Read (uses CodeError = str::err::DefChar)
+	*	by using inheritance internally, and is otherwise equivalent to json::Read (uses Error = str::CodeError::replace)
 	*	Note: Must not outlive the sink as it stores a reference to it */
 	template <str::IsStream StreamType>
 	json::AnyReader ReadAny(StreamType&& stream) {
@@ -621,7 +621,7 @@ namespace json {
 		std::unique_ptr<str::InheritStream> readStream = std::make_unique<str::StreamImplementation<ActStream>>(std::forward<StreamType>(stream));
 
 		/* setup the first state and fetch the initial value */
-		auto state = std::make_shared<detail::ReaderState<detail::ReadAnyType, str::err::DefChar>>(std::move(readStream));
+		auto state = std::make_shared<detail::ReaderState<detail::ReadAnyType, str::CodeError::replace>>(std::move(readStream));
 		return state->initValue(state);
 	}
 }

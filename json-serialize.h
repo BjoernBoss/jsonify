@@ -7,10 +7,10 @@
 
 namespace json {
 	namespace detail {
-		template <class SinkType, char32_t CodeError>
+		template <class SinkType, str::CodeError Error>
 		class JsonSerializer {
 		private:
-			detail::Serializer<SinkType, CodeError> pSerializer;
+			detail::Serializer<SinkType, Error> pSerializer;
 
 		private:
 			constexpr void fWriteArray(const auto& v) {
@@ -75,18 +75,18 @@ namespace json {
 
 	/* serialize the json-like object to the sink and return it (indentation will be sanitized to
 	*	only contain spaces and tabs, if indentation is empty, a compact json stream will be produced) */
-	template <char32_t CodeError = str::err::DefChar>
+	template <str::CodeError Error = str::CodeError::replace>
 	constexpr auto& SerializeTo(str::IsSink auto&& sink, const json::IsJson auto& value, const std::wstring_view& indent = L"\t") {
-		detail::JsonSerializer<decltype(sink), CodeError> _serializer{ sink, indent, value };
+		detail::JsonSerializer<decltype(sink), Error> _serializer{ sink, indent, value };
 		return sink;
 	}
 
 	/* serialize the json-like object to an object of the given sink-type using json::SerializeTo and return it (indentation
 	*	will be sanitized to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced) */
-	template <str::IsSink SinkType, char32_t CodeError = str::err::DefChar>
+	template <str::IsSink SinkType, str::CodeError Error = str::CodeError::replace>
 	constexpr SinkType Serialize(const json::IsJson auto& value, const std::wstring_view& indent = L"\t") {
 		SinkType sink{};
-		json::SerializeTo(sink, value, indent);
+		json::SerializeTo<Error>(sink, value, indent);
 		return sink;
 	}
 }

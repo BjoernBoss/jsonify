@@ -20,7 +20,7 @@ namespace json {
 		};
 		using NumberValue = std::variant<json::UNum, json::INum, json::Real>;
 
-		template <class StreamType, char32_t CodeError>
+		template <class StreamType, str::CodeError Error>
 		class Deserializer {
 			using ChType = str::StreamChar<StreamType>;
 		private:
@@ -40,8 +40,8 @@ namespace json {
 					if (AllowEndOfStream && pStream.done())
 						return str::Invalid;
 
-					/* fetch the next codepoint and skip all codepoints to be ignored (due to CodeError) */
-					auto [cp, len] = str::GetCodepoint<CodeError>(pStream.load(str::MaxEncSize<ChType>));
+					/* fetch the next codepoint and skip all codepoints to be ignored (due to Error) */
+					auto [cp, len] = str::GetCodepoint<Error>(pStream.load(str::MaxEncSize<ChType>));
 					pStream.consume(len);
 					if (cp != str::Invalid)
 						return (pLastToken = cp);
@@ -249,7 +249,7 @@ namespace json {
 						return;
 					}
 					if (c != U'\\') {
-						str::CodepointTo<CodeError>(sink, c, 1);
+						str::CodepointTo<Error>(sink, c, 1);
 						continue;
 					}
 
@@ -259,22 +259,22 @@ namespace json {
 					case U'\"':
 					case U'\\':
 					case U'/':
-						str::CodepointTo<CodeError>(sink, c, 1);
+						str::CodepointTo<Error>(sink, c, 1);
 						break;
 					case U'b':
-						str::CodepointTo<CodeError>(sink, U'\b', 1);
+						str::CodepointTo<Error>(sink, U'\b', 1);
 						break;
 					case U'f':
-						str::CodepointTo<CodeError>(sink, U'\f', 1);
+						str::CodepointTo<Error>(sink, U'\f', 1);
 						break;
 					case U'n':
-						str::CodepointTo<CodeError>(sink, U'\n', 1);
+						str::CodepointTo<Error>(sink, U'\n', 1);
 						break;
 					case U'r':
-						str::CodepointTo<CodeError>(sink, U'\r', 1);
+						str::CodepointTo<Error>(sink, U'\r', 1);
 						break;
 					case U't':
-						str::CodepointTo<CodeError>(sink, U'\t', 1);
+						str::CodepointTo<Error>(sink, U'\t', 1);
 						break;
 					case U'u':
 						break;
@@ -302,10 +302,10 @@ namespace json {
 
 						/* try to decode the character or check if another character is
 						*	missing (cannot result in incomplete if max_size is encountered) */
-						auto [cp, len] = str::PartialCodepoint<CodeError>(sequence);
+						auto [cp, len] = str::PartialCodepoint<Error>(sequence);
 						if (len != 0) {
 							if (cp != str::Invalid)
-								str::CodepointTo<CodeError>(sink, cp, 1);
+								str::CodepointTo<Error>(sink, cp, 1);
 							break;
 						}
 
