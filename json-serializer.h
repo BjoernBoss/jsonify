@@ -88,7 +88,7 @@ namespace json::detail {
 			/* check if its one of the constant keywords */
 			if constexpr (std::same_as<VType, json::Bool>)
 				str::FastcodeAllTo<Error>(pSink, v ? U"true" : U"false");
-			else if constexpr (std::same_as<VType, json::Null>)
+			else if constexpr (std::same_as<VType, json::NullType>)
 				str::FastcodeAllTo<Error>(pSink, U"null");
 
 			/* check if its a float and limit it to ensure it will not be formatted to 'inf'/'nan'/... */

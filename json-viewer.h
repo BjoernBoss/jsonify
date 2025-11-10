@@ -25,7 +25,7 @@ namespace json {
 			size_t keysAndValues = 0;
 		};
 
-		using ViewEntry = std::variant<detail::StrViewObject, detail::ArrViewObject, detail::ObjViewObject, json::Null, json::UNum, json::INum, json::Real, json::Bool>;
+		using ViewEntry = std::variant<detail::StrViewObject, detail::ArrViewObject, detail::ObjViewObject, json::NullType, json::UNum, json::INum, json::Real, json::Bool>;
 
 		struct ViewState {
 		public:
@@ -158,7 +158,7 @@ namespace json {
 			case json::Type::boolean:
 				return std::holds_alternative<json::Bool>(value);
 			default:
-				return std::holds_alternative<json::Null>(value);
+				return std::holds_alternative<json::NullType>(value);
 			}
 		}
 
@@ -177,6 +177,7 @@ namespace json {
 	}
 
 	/* [json::IsJson] json-view of type [value], which can be used to read the current value
+	*	- default initialized as null
 	*	- missing object-keys will return a constant json::Null
 	*	- caches string key lookups for faster multi-accessing
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
@@ -187,7 +188,7 @@ namespace json {
 		mutable size_t pLastKey = 0;
 
 	public:
-		constexpr Viewer() : detail::ViewEntry{ json::Null() } {}
+		constexpr Viewer() : detail::ViewEntry{ json::Null } {}
 		Viewer(json::Viewer&&) = default;
 		Viewer(const json::Viewer&) = default;
 		json::Viewer& operator=(json::Viewer&&) = default;
@@ -201,7 +202,7 @@ namespace json {
 
 	public:
 		constexpr bool isNull() const {
-			return std::holds_alternative<json::Null>(*this);
+			return std::holds_alternative<json::NullType>(*this);
 		}
 		constexpr bool isBoolean() const {
 			return std::holds_alternative<json::Bool>(*this);
@@ -340,15 +341,13 @@ namespace json {
 			return this->at(k);
 		}
 		json::Viewer at(json::StrView k) const {
-			static json::Viewer nullValue{};
-
 			if (!std::holds_alternative<detail::ObjViewObject>(*this))
 				throw json::TypeException(L"json::Viewer is not a object");
 			detail::ObjViewObject obj = std::get<detail::ObjViewObject>(*this);
 
 			if (detail::ViewObjLookup(k, obj, pLastKey, pState))
 				return json::Viewer{ pState, obj.offset + pLastKey + 1 };
-			return nullValue;
+			return json::Viewer{};
 		}
 		constexpr bool contains(json::StrView k) const {
 			if (!std::holds_alternative<detail::ObjViewObject>(*this))
@@ -659,10 +658,9 @@ namespace json {
 			return true;
 		}
 		json::Viewer at(json::StrView k) const {
-			static json::Viewer nullValue{};
 			if (detail::ViewObjLookup(k, pSelf, pLastKey, pState))
 				return detail::ViewAccess::Make(pState, pSelf.offset + pLastKey + 1);
-			return nullValue;
+			return json::Viewer{};
 		}
 	};
 

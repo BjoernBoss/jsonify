@@ -48,7 +48,7 @@ namespace json {
 				else if (v.isBoolean())
 					fWritePrimitive(v.boolean());
 				else
-					fWritePrimitive(json::Null());
+					fWritePrimitive(json::Null);
 			}
 			template <class Type>
 			constexpr void fWrite(const Type& v) {

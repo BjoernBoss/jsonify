@@ -176,9 +176,9 @@ namespace json {
 				fUnexpectedToken(c, u8"json-value");
 				return json::Type::null;
 			}
-			constexpr json::Null readNull() {
+			constexpr json::NullType readNull() {
 				fCheckWord(U"null");
-				return json::Null();
+				return json::Null;
 			}
 			constexpr json::Bool readBoolean() {
 				if (fNextToken(false) == 't') {

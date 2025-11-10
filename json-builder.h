@@ -44,7 +44,7 @@ namespace json {
 			constexpr ~BuilderState() {
 				/* check if a single value remains (can happen if nothing is ever written out) */
 				if (pAwaitingValue)
-					pSerializer.primitive(json::Null());
+					pSerializer.primitive(json::Null);
 				pAwaitingValue = false;
 			}
 
@@ -66,7 +66,7 @@ namespace json {
 				/* check if a value is currently expected and just write null */
 				if (pAwaitingValue) {
 					pAwaitingValue = false;
-					pSerializer.primitive(json::Null());
+					pSerializer.primitive(json::Null);
 				}
 
 				/* close all instances until this is the next active builder */
@@ -113,7 +113,7 @@ namespace json {
 				else if (v.isBoolean())
 					fWritePrimitive(v.boolean());
 				else
-					fWritePrimitive(json::Null());
+					fWritePrimitive(json::Null);
 			}
 			template <class Type>
 			constexpr void fWrite(const Type& v) {

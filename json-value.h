@@ -46,19 +46,20 @@ namespace json {
 		using ObjPtr = std::unique_ptr<json::Obj>;
 
 		/* json-null first to default-construct as null */
-		using ValueParent = std::variant<json::Null, json::UNum, json::INum, json::Real, json::Bool, detail::ArrPtr, detail::StrPtr, detail::ObjPtr>;
+		using ValueParent = std::variant<json::NullType, json::UNum, json::INum, json::Real, json::Bool, detail::ArrPtr, detail::StrPtr, detail::ObjPtr>;
 	}
 
 	/* [json::IsJson] representation of a single json value of any kind
+	*	- default initialized as null
 	*	- uses json::Null/json::UNum/json::INum/json::Real/json::Bool/json::Arr/json::Str/json::Obj
 	*	- user-friendly and will convert to requested type whenever possible
 	*	- missing object-keys will either insert json::Null or return a constant json::Null
 	*	- uses str::CodeError::replace for any string transcoding while assigning strings */
 	class Value : private detail::ValueParent {
 	public:
-		constexpr Value() : detail::ValueParent{ json::Null() } {}
+		constexpr Value() : detail::ValueParent{ json::Null } {}
 		Value(json::Value&&) = default;
-		Value(const json::Value& v) : detail::ValueParent{ json::Null() } {
+		Value(const json::Value& v) : detail::ValueParent{ json::Null } {
 			fAssignSelf(v);
 		}
 		Value(const json::Arr& v) : detail::ValueParent{ std::make_unique<json::Arr>(v) } {}
@@ -67,7 +68,7 @@ namespace json {
 		Value(json::Obj&& v) : detail::ValueParent{ std::make_unique<json::Obj>(std::move(v)) } {}
 		Value(const json::Str& v) : detail::ValueParent{ std::make_unique<json::Str>(v) } {}
 		Value(json::Str&& v) : detail::ValueParent{ std::make_unique<json::Str>(std::move(v)) } {}
-		constexpr Value(const json::IsJson auto& v) : detail::ValueParent{ json::Null() } {
+		constexpr Value(const json::IsJson auto& v) : detail::ValueParent{ json::Null } {
 			using Type = decltype(v);
 			fAssignValue<Type>(std::forward<Type>(v));
 		}
@@ -128,8 +129,8 @@ namespace json {
 					return false;
 				return (*std::get<detail::StrPtr>(*this) == *std::get<detail::StrPtr>(v));
 			}
-			if (std::holds_alternative<json::Null>(*this))
-				return std::holds_alternative<json::Null>(v);
+			if (std::holds_alternative<json::NullType>(*this))
+				return std::holds_alternative<json::NullType>(v);
 
 			if (std::holds_alternative<json::Real>(*this)) {
 				if (std::holds_alternative<json::Real>(v))
@@ -171,8 +172,8 @@ namespace json {
 				static_cast<detail::ValueParent&>(*this) = std::make_unique<json::Str>(*std::get<detail::StrPtr>(v));
 			else if (std::holds_alternative<json::Bool>(v))
 				static_cast<detail::ValueParent&>(*this) = std::get<json::Bool>(v);
-			else if (std::holds_alternative<json::Null>(v))
-				static_cast<detail::ValueParent&>(*this) = json::Null();
+			else if (std::holds_alternative<json::NullType>(v))
+				static_cast<detail::ValueParent&>(*this) = json::NullType();
 			else if (std::holds_alternative<json::Real>(v))
 				static_cast<detail::ValueParent&>(*this) = std::get<json::Real>(v);
 			else if (std::holds_alternative<json::INum>(v))
@@ -221,7 +222,7 @@ namespace json {
 				else if (val.isBoolean())
 					fAssignValue(val.boolean());
 				else
-					fAssignValue(json::Null());
+					fAssignValue(json::Null);
 			}
 			else {
 				static_assert(json::IsPrimitive<Type>);
@@ -292,8 +293,8 @@ namespace json {
 					static_cast<detail::ValueParent&>(*this) = json::Bool();
 				break;
 			default:
-				if (!std::holds_alternative<json::Null>(*this))
-					static_cast<detail::ValueParent&>(*this) = json::Null();
+				if (!std::holds_alternative<json::NullType>(*this))
+					static_cast<detail::ValueParent&>(*this) = json::Null;
 			}
 		}
 		constexpr bool fConvertable(json::Type t) const {
@@ -327,13 +328,13 @@ namespace json {
 			case json::Type::boolean:
 				return std::holds_alternative<json::Bool>(*this);
 			default:
-				return std::holds_alternative<json::Null>(*this);
+				return std::holds_alternative<json::NullType>(*this);
 			}
 		}
 
 	public:
 		constexpr bool isNull() const {
-			return std::holds_alternative<json::Null>(*this);
+			return std::holds_alternative<json::NullType>(*this);
 		}
 		constexpr bool isBoolean() const {
 			return std::holds_alternative<json::Bool>(*this);
@@ -505,7 +506,7 @@ namespace json {
 			return this->at(k);
 		}
 		const json::Value& at(const json::Str& k) const {
-			static json::Value nullValue = json::Null();
+			static json::Value nullValue = json::Null;
 
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
 				throw json::TypeException(L"json::Value is not a object");

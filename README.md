@@ -20,7 +20,7 @@ This library is a header only library. Simply clone the repository, ensure that 
 
 ```C++
 /* assign a direct json-value */
-json::Value value = json::Obj{ { L"abc", 5 }, { L"def", json::Null() } };
+json::Value value = json::Obj{ { L"abc", 5 }, { L"def", json::Null } };
 
 /* assign any json-like, which will be evaluated and assigned based on the type */
 value[L"ghi"] = { u8"abc", u8"def", u8"ghi" };
@@ -34,7 +34,7 @@ The library offers two serialization functions: `json::Serialize(value, indent)`
 ```C++
 auto _s0 = json::Serialize<std::wstring>(json::Arr{ 1, 2, 3 });
 auto _s1 = json::Serialize<std::u8string>(json::Obj{
-    { L"abc", json::Null() },
+    { L"abc", json::Null },
     { L"def", json::Arr{ 5, 6, 7 } }
 }, L"\t");
 

@@ -23,7 +23,10 @@ namespace json {
 	using Bool = bool;
 	using Str = std::wstring;
 	using StrView = std::wstring_view;
-	struct Null {};
+	struct NullType {};
+
+	/* quick-access to null */
+	constexpr json::NullType Null = json::NullType{};
 
 	enum class Type : uint8_t {
 		null,
@@ -74,7 +77,7 @@ namespace json {
 
 	/* check if the type is a primitive json-value [null, bool, real, number] */
 	template <class Type>
-	concept IsPrimitive = std::same_as<std::remove_cvref_t<Type>, json::Null> || std::integral<std::remove_cvref_t<Type>> || std::floating_point<std::remove_cvref_t<Type>>;
+	concept IsPrimitive = std::same_as<std::remove_cvref_t<Type>, json::NullType> || std::integral<std::remove_cvref_t<Type>> || std::floating_point<std::remove_cvref_t<Type>>;
 
 	/* check if the type can be used as json-string, which must be any string-type by str::IsStr */
 	template <class Type>

@@ -42,7 +42,7 @@ namespace json {
 
 		/* json-null first to default-construct as null */
 		template <class StreamType, str::CodeError Error>
-		using ReaderParent = std::variant<json::Null, json::UNum, json::INum, json::Real, json::Bool, detail::StrReader, detail::ArrReference<StreamType, Error>, detail::ObjReference<StreamType, Error>>;
+		using ReaderParent = std::variant<json::NullType, json::UNum, json::INum, json::Real, json::Bool, detail::StrReader, detail::ArrReference<StreamType, Error>, detail::ObjReference<StreamType, Error>>;
 
 		template <class StreamType, str::CodeError Error>
 		class ReaderState {
@@ -205,12 +205,12 @@ namespace json {
 		constexpr json::Reader<StreamType, Error>& operator=(const json::Reader<StreamType, Error>&) = default;
 
 	private:
-		constexpr Reader() : detail::ReaderParent<StreamType, Error>{ json::Null() } {}
+		constexpr Reader() : detail::ReaderParent<StreamType, Error>{ json::Null } {}
 		constexpr Reader(const detail::ReaderParent<StreamType, Error>& v) : detail::ReaderParent<StreamType, Error>{ v } {}
 
 	public:
 		constexpr bool isNull() const {
-			return std::holds_alternative<json::Null>(*this);
+			return std::holds_alternative<json::NullType>(*this);
 		}
 		constexpr bool isBoolean() const {
 			return std::holds_alternative<json::Bool>(*this);
@@ -266,7 +266,7 @@ namespace json {
 			case json::Type::boolean:
 				return std::holds_alternative<json::Bool>(*this);
 			default:
-				return std::holds_alternative<json::Null>(*this);
+				return std::holds_alternative<json::NullType>(*this);
 			}
 		}
 		constexpr json::Type type() const {
