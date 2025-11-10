@@ -144,5 +144,8 @@ namespace json::detail {
 			pAlreadyHasValue = true;
 			str::CodepointTo<Error>(pSink, obj ? U'}' : U']');
 		}
+		constexpr void insert(const auto& s) {
+			str::FastcodeAllTo<Error>(pSink, s);
+		}
 	};
 }

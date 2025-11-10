@@ -175,6 +175,10 @@ namespace json {
 				fCheckStamp(stamp);
 				fWrite(value);
 			}
+			constexpr void insert(size_t stamp, const auto& value) {
+				fCheckStamp(stamp);
+				pSerializer.insert(value);
+			}
 		};
 
 		struct BuildAccess {
@@ -230,6 +234,12 @@ namespace json {
 		/* assign the json-like object to this value (closes this object) */
 		void set(const json::IsJson auto& v) {
 			pBuilder->next(pStamp, v);
+		}
+
+		/* assign the well formed json-value to this value (closes this object, is
+		*	not validated, caller must ensure its a single well formatted value) */
+		void setJson(const json::IsString auto& v) {
+			pBuilder->insert(pStamp, v);
 		}
 
 		/* mark this object and being an object and return the corresponding builder (closes this object) */
@@ -311,6 +321,12 @@ namespace json {
 			size_t stamp = pBuilder->allocNext(pInstance.get(), k);
 			pBuilder->next(stamp, v);
 		}
+
+		/* push a well formed json-value (is not validated, caller must ensure its a single well formatted value) */
+		void pushJson(const json::IsString auto& k, const json::IsString auto& v) {
+			size_t stamp = pBuilder->allocNext(pInstance.get(), k);
+			pBuilder->insert(stamp, v);
+		}
 	};
 
 	/* json-builder of type [array], which can be used to push values to the the corresponding array and to the sink
@@ -372,6 +388,12 @@ namespace json {
 		void push(const json::IsJson auto& v) {
 			size_t stamp = pBuilder->allocNext(pInstance.get(), L"");
 			pBuilder->next(stamp, v);
+		}
+
+		/* push a well formed json-value (is not validated, caller must ensure its a single well formatted value) */
+		void pushJson(const json::IsString auto& v) {
+			size_t stamp = pBuilder->allocNext(pInstance.get(), L"");
+			pBuilder->insert(stamp, v);
 		}
 	};
 

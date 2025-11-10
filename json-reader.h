@@ -434,7 +434,7 @@ namespace json {
 			return iterator{ *this, false };
 		}
 
-		/* fetch the end iterator to this array (will be equal to any other iterator of this object when closed() return true) */
+		/* fetch the end iterator to this array (will be equal to any other iterator of this object when closed() returns true) */
 		constexpr iterator end() const {
 			return iterator{ *this, true };
 		}
@@ -548,7 +548,7 @@ namespace json {
 			return iterator{ *this, false };
 		}
 
-		/* fetch the end iterator to this object (will be equal to any other iterator of this object when closed() return true) */
+		/* fetch the end iterator to this object (will be equal to any other iterator of this object when closed() returns true) */
 		constexpr iterator end() const {
 			return iterator{ *this, true };
 		}
