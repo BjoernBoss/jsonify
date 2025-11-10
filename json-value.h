@@ -10,11 +10,35 @@
 namespace json {
 	class Value;
 
-	/* json::Arr is a std::vector of json::Values */
-	using Arr = std::vector<json::Value>;
+	/* json::Arr is a std::vector of json::Values with some additional ease-of-use functions
+	*	- original behavior of std::vector is not modified */
+	struct Arr : public std::vector<json::Value> {
+	private:
+		using Impl = std::vector<json::Value>;
 
-	/* json::Obj is a std::unordered_map of json::Str to json::Values */
-	using Obj = std::unordered_map<json::Str, json::Value>;
+	public:
+		using Impl::Impl;
+
+	public:
+		constexpr bool has(size_t i) const;
+		constexpr bool has(size_t i, json::Type t) const;
+		constexpr bool typedArray(json::Type t) const;
+	};
+
+	/* json::Obj is a std::unordered_map of json::Str to json::Values with some additional ease-of-use functions
+	*	- original behavior of std::unordered_map is not modified */
+	struct Obj : public std::unordered_map<json::Str, json::Value> {
+	private:
+		using Impl = std::unordered_map<json::Str, json::Value>;
+
+	public:
+		using Impl::Impl;
+
+	public:
+		using Impl::contains;
+		bool contains(const json::Str& k, json::Type t) const;
+		bool typedObject(json::Type t) const;
+	};
 
 	namespace detail {
 		using StrPtr = std::unique_ptr<json::Str>;
@@ -545,11 +569,11 @@ namespace json {
 				throw json::RangeException(L"Array index out of range");
 			return arr[i];
 		}
-		constexpr void push(const json::Value& v) {
+		constexpr void push_back(const json::Value& v) {
 			fEnsureType(json::Type::array);
 			std::get<detail::ArrPtr>(*this)->push_back(v);
 		}
-		void pop() {
+		void pop_back() {
 			fEnsureType(json::Type::array);
 			json::Arr& arr = *std::get<detail::ArrPtr>(*this);
 			if (!arr.empty())
@@ -583,4 +607,35 @@ namespace json {
 			return true;
 		}
 	};
+
+	constexpr bool json::Arr::has(size_t i) const {
+		const Impl& impl{ *this };
+		return (i < impl.size());
+	}
+	constexpr bool json::Arr::has(size_t i, json::Type t) const {
+		const Impl& impl{ *this };
+		return (i < impl.size() && impl[i].is(t));
+	}
+	constexpr bool json::Arr::typedArray(json::Type t) const {
+		const Impl& impl{ *this };
+		for (size_t i = 0; i < impl.size(); ++i) {
+			if (!impl[i].is(t))
+				return false;
+		}
+		return true;
+	}
+
+	inline bool json::Obj::contains(const json::Str& k, json::Type t) const {
+		const Impl& impl{ *this };
+		auto it = impl.find(k);
+		return (it != impl.end() && it->second.is(t));
+	}
+	inline bool json::Obj::typedObject(json::Type t) const {
+		const Impl& impl{ *this };
+		for (const auto& val : impl) {
+			if (!val.second.is(t))
+				return false;
+		}
+		return true;
+	}
 }
