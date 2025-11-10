@@ -36,7 +36,7 @@ namespace json {
 				} while (!pDeserializer.closeElseSeparator(false));
 			}
 			constexpr void fValue(json::Value& out) {
-				switch (pDeserializer.peekOrOpenNext()) {
+				switch (pDeserializer.peekOrOpenNext().first) {
 				case json::Type::string:
 					pDeserializer.readString(out.str(), false);
 					break;

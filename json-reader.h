@@ -51,6 +51,7 @@ namespace json {
 				/* explicit construction necessary, as default-constructor is private and cannot be accessed by std::pair */
 				std::pair<json::Str, json::Reader<StreamType, Error>> value = { L"", {} };
 				std::unique_ptr<Instance> self;
+				size_t end = 0;
 				bool object = false;
 				bool opened = false;
 			};
@@ -74,41 +75,44 @@ namespace json {
 
 		private:
 			json::Reader<StreamType, Error> fValue(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& _this) {
-				switch (pDeserializer.peekOrOpenNext()) {
+				const auto [type, offset] = pDeserializer.peekOrOpenNext();
+				switch (type) {
 				case json::Type::unumber:
 				case json::Type::inumber:
 				case json::Type::real: {
 					detail::NumberValue num = pDeserializer.readNumber();
 					if (std::holds_alternative<json::INum>(num))
-						return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::INum>(num) } };
+						return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::INum>(num) }, offset, pDeserializer.end() };
 					if (std::holds_alternative<json::UNum>(num))
-						return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::UNum>(num) } };
-					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::Real>(num) } };
+						return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::UNum>(num) }, offset, pDeserializer.end() };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ std::get<json::Real>(num) }, offset, pDeserializer.end() };
 				}
 				case json::Type::boolean:
-					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ pDeserializer.readBoolean() } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ pDeserializer.readBoolean() }, offset, pDeserializer.end() };
 				case json::Type::string: {
 					detail::StrReader str = std::make_shared<json::Str>();
 					pDeserializer.readString(*str, false);
-					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ str } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ str }, offset, pDeserializer.end() };
 				}
 				case json::Type::array: {
 					std::unique_ptr<Instance> inst = std::make_unique<Instance>();
 					pActive.push_back(inst.get());
 					inst->object = false;
+					inst->end = offset;
 					inst->self = std::move(inst);
-					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ detail::ArrReference<StreamType, Error>{ _this, ++pNextStamp } } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ detail::ArrReference<StreamType, Error>{ _this, ++pNextStamp } }, offset, offset };
 				}
 				case json::Type::object: {
 					std::unique_ptr<Instance> inst = std::make_unique<Instance>();
 					pActive.push_back(inst.get());
 					inst->object = true;
+					inst->end = offset;
 					inst->self = std::move(inst);
-					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ detail::ObjReference<StreamType, Error>{ _this, ++pNextStamp } } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ detail::ObjReference<StreamType, Error>{ _this, ++pNextStamp } }, offset, offset };
 				}
 				case json::Type::null:
 				default:
-					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ pDeserializer.readNull() } };
+					return json::Reader<StreamType, Error>{ detail::ReaderParent<StreamType, Error>{ pDeserializer.readNull() }, offset, pDeserializer.end() };
 				}
 			}
 			constexpr bool fReadNextValue(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& _this) {
@@ -118,6 +122,7 @@ namespace json {
 				/* check if this is the first value being read, in which case no separator is required,
 				*	or if no value is found anymore, in which case the instance can be released */
 				if (inst->opened ? pDeserializer.closeElseSeparator(inst->object) : pDeserializer.checkIsEmpty(inst->object)) {
+					inst->end = pDeserializer.end();
 					inst->self.reset();
 					pActive.pop_back();
 
@@ -190,6 +195,16 @@ namespace json {
 					while (fReadNextValue(_this)) {}
 				}
 			}
+			constexpr size_t close(size_t stamp, bool object) {
+				/* check if the object is the next in line and has not yet been fetched */
+				if (stamp != pNextStamp || pActive.back()->self.get() == 0)
+					throw json::ReaderException(object ? L"Object has already been opened for reading" : L"Array has already been opened for reading");
+
+				/* remove the top entry and return the actual end index */
+				std::unique_ptr<Instance> inst{ std::move(pActive.back()->self) };
+				while (fReadNextValue(nullptr)) {}
+				return inst->end;
+			}
 		};
 	}
 
@@ -198,6 +213,10 @@ namespace json {
 	template <json::IsReadType StreamType, str::CodeError Error>
 	class Reader : private detail::ReaderParent<StreamType, Error> {
 		friend class detail::ReaderState<StreamType, Error>;
+	private:
+		size_t pBegin = 0;
+		mutable size_t pEnd = 0;
+
 	public:
 		constexpr Reader(json::Reader<StreamType, Error>&&) = default;
 		constexpr Reader(const json::Reader<StreamType, Error>&) = default;
@@ -206,7 +225,7 @@ namespace json {
 
 	private:
 		constexpr Reader() : detail::ReaderParent<StreamType, Error>{ json::Null } {}
-		constexpr Reader(const detail::ReaderParent<StreamType, Error>& v) : detail::ReaderParent<StreamType, Error>{ v } {}
+		constexpr Reader(const detail::ReaderParent<StreamType, Error>& v, size_t begin, size_t end) : detail::ReaderParent<StreamType, Error>{ v }, pBegin{ begin }, pEnd{ end } {}
 
 	public:
 		constexpr bool isNull() const {
@@ -332,13 +351,32 @@ namespace json {
 			if (!std::holds_alternative<detail::ArrReference<StreamType, Error>>(*this))
 				throw json::TypeException(L"json::Reader is not an array");
 			const detail::ArrReference<StreamType, Error>& arr = std::get<detail::ArrReference<StreamType, Error>>(*this);
-			return json::ArrReader<StreamType, Error>{ arr.state, std::move(arr.state->open(arr.stamp, false)) };
+			return json::ArrReader<StreamType, Error>{ arr.state, std::move(arr.state->open(arr.stamp, false)), pBegin };
 		}
 		constexpr json::ObjReader<StreamType, Error> obj() const {
 			if (!std::holds_alternative<detail::ObjReference<StreamType, Error>>(*this))
 				throw json::TypeException(L"json::Reader is not an object");
-			const detail::ObjReference<StreamType, Error>& arr = std::get<detail::ObjReference<StreamType, Error>>(*this);
-			return json::ObjReader<StreamType, Error>{ arr.state, std::move(arr.state->open(arr.stamp, true)) };
+			const detail::ObjReference<StreamType, Error>& obj = std::get<detail::ObjReference<StreamType, Error>>(*this);
+			return json::ObjReader<StreamType, Error>{ obj.state, std::move(obj.state->open(obj.stamp, true)), pBegin };
+		}
+
+	public:
+		/* range in the source stream this value originates from (invalid for arr/obj unless they have been closed) */
+		constexpr std::pair<size_t, size_t> source() const {
+			return { pBegin, pEnd };
+		}
+
+		/* close the current array or object (must not have been activated before, does nothing for other objects) */
+		constexpr void close() const {
+			/* check if the object is an array or value and close it */
+			if (std::holds_alternative<detail::ArrReference<StreamType, Error>>(*this)) {
+				const detail::ArrReference<StreamType, Error>& arr = std::get<detail::ArrReference<StreamType, Error>>(*this);
+				pEnd = arr.state->close(arr.stamp, false);
+			}
+			else if (std::holds_alternative<detail::ObjReference<StreamType, Error>>(*this)) {
+				const detail::ObjReference<StreamType, Error>& obj = std::get<detail::ObjReference<StreamType, Error>>(*this);
+				pEnd = obj.state->close(obj.stamp, true);
+			}
 		}
 
 	public:
@@ -350,7 +388,8 @@ namespace json {
 
 	/* [json::IsArray] json-reader of type [array], which can be used to read the corresponding array value
 	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value)
-	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading
+	*	Note: Is invalidate once itself is closed/destructed or parent is destructed (must not be advanced afterwards anymore) */
 	template <json::IsReadType StreamType, str::CodeError Error>
 	class ArrReader {
 		friend class json::Reader<StreamType, Error>;
@@ -403,6 +442,7 @@ namespace json {
 	private:
 		mutable std::shared_ptr<detail::ReaderState<StreamType, Error>> pState;
 		std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance> pInstance;
+		size_t pBegin = 0;
 
 	public:
 		constexpr ArrReader() = delete;
@@ -424,11 +464,16 @@ namespace json {
 		}
 
 	private:
-		constexpr ArrReader(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& state, std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance>&& inst) : pState{ state }, pInstance{ std::move(inst) } {
+		constexpr ArrReader(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& state, std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance>&& inst, size_t begin) : pState{ state }, pInstance{ std::move(inst) }, pBegin{ begin } {
 			fNext();
 		}
 
 	public:
+		/* range in the source stream this value originates from (only valid once closed() returns true) */
+		constexpr std::pair<size_t, size_t> source() const {
+			return { pBegin, pInstance->end };
+		}
+
 		/* fetch an iterator to this array (advancing the iterator is equivalent to calling next() on this object) */
 		constexpr iterator begin() const {
 			return iterator{ *this, false };
@@ -464,7 +509,8 @@ namespace json {
 
 	/* [json::IsObject] json-reader of type [object], which can be used to read the corresponding object values
 	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value)
-	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
+	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading
+	*	Note: Is invalidate once itself is closed/destructed or parent is destructed (must not be advanced afterwards anymore) */
 	template <json::IsReadType StreamType, str::CodeError Error>
 	class ObjReader {
 		friend class json::Reader<StreamType, Error>;
@@ -517,6 +563,7 @@ namespace json {
 	private:
 		mutable std::shared_ptr<detail::ReaderState<StreamType, Error>> pState;
 		std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance> pInstance;
+		size_t pBegin = 0;
 
 	public:
 		constexpr ObjReader() = delete;
@@ -538,11 +585,16 @@ namespace json {
 		}
 
 	private:
-		constexpr ObjReader(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& state, std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance>&& inst) : pState{ state }, pInstance{ std::move(inst) } {
+		constexpr ObjReader(const std::shared_ptr<detail::ReaderState<StreamType, Error>>& state, std::unique_ptr<typename detail::ReaderState<StreamType, Error>::Instance>&& inst, size_t begin) : pState{ state }, pInstance{ std::move(inst) }, pBegin{ begin } {
 			fNext();
 		}
 
 	public:
+		/* range in the source stream this value originates from (only valid once closed() returns true) */
+		constexpr std::pair<size_t, size_t> source() const {
+			return { pBegin, pInstance->end };
+		}
+
 		/* fetch an iterator to this object (advancing the iterator is equivalent to calling next() on this object) */
 		constexpr iterator begin() const {
 			return iterator{ *this, false };
@@ -572,12 +624,12 @@ namespace json {
 
 		/* read the current key (only if the reader is not marked as closed()) */
 		constexpr const json::Str& key() const {
-			return pInstance->key;
+			return pInstance->value.first;
 		}
 
 		/* read the current value (only if the reader is not marked as closed()) */
 		constexpr const json::Reader<StreamType, Error>& value() const {
-			return pInstance->value;
+			return pInstance->value.second;
 		}
 
 		/* read the current value (only if the reader is not marked as closed()) */
@@ -588,6 +640,7 @@ namespace json {
 
 	/* construct a json value-reader from the given stream and ensure that the entire stream is a single valid
 	*	json-value and parse and validate the json along reading it instead of parsing it in its entirety beforehand
+	*	Note: Can be used to determine json value locations in the source stream
 	*	Note: Must not outlive the stream as it may store a reference to it */
 	template <str::IsStream StreamType, str::CodeError Error = str::CodeError::replace>
 	constexpr json::Reader<std::remove_reference_t<StreamType>, Error> Read(StreamType&& stream) {

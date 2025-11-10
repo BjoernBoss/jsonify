@@ -73,7 +73,7 @@ namespace json::detail {
 		}
 
 	public:
-		constexpr Serializer(SinkType&& sink, const std::wstring_view& indent) : pSink{ std::forward<SinkType>(sink) } {
+		constexpr Serializer(SinkType&& sink, std::wstring_view indent) : pSink{ std::forward<SinkType>(sink) } {
 			/* ensure whitespace only consists of tabs/spaces */
 			for (wchar_t c : indent) {
 				if (c == L' ' || c == L'\t')

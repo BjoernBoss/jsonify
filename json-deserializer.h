@@ -27,6 +27,7 @@ namespace json {
 			str::Stream<StreamType> pStream;
 			std::u32string pBuffer;
 			size_t pPosition = 0;
+			size_t pLength = 0;
 			char32_t pLastToken = str::Invalid;
 
 		public:
@@ -42,17 +43,18 @@ namespace json {
 
 					/* fetch the next codepoint and skip all codepoints to be ignored (due to Error) */
 					auto [cp, len] = str::GetCodepoint<Error>(pStream.load(str::MaxEncSize<ChType>));
-					pStream.consume(len);
+					pStream.consume(pLength = len);
 					if (cp != str::Invalid)
 						return (pLastToken = cp);
 
 					/* check if the EOF has been reached */
 					if (len == 0)
 						throw json::DeserializeException(L"Unexpected <EOF> encountered at ", pPosition);
+					pPosition += pLength;
 				}
 			}
 			constexpr void fConsume() {
-				++pPosition;
+				pPosition += pLength;
 				pLastToken = str::Invalid;
 			}
 			template <bool AllowEndOfStream = false>
@@ -64,7 +66,7 @@ namespace json {
 				/* skip any leading whitespace */
 				if (skipWhiteSpace) {
 					while (pLastToken == U' ' || pLastToken == U'\n' || pLastToken == U'\r' || pLastToken == U'\t') {
-						++pPosition;
+						pPosition += pLength;
 						pLastToken = fPrepare<AllowEndOfStream>();
 					}
 				}
@@ -120,7 +122,7 @@ namespace json {
 			constexpr void fParseError(const char8_t* what) {
 				throw json::DeserializeException(what, L" while parsing the json at ", pPosition);
 			}
-			constexpr void fCheckWord(const std::u32string_view& word) {
+			constexpr void fCheckWord(std::u32string_view word) {
 				/* verify the remaining characters (first character is already verified to determine the type) */
 				for (size_t i = 1; i < word.size(); ++i) {
 					char32_t c = fConsumeAndNext(false);
@@ -150,31 +152,32 @@ namespace json {
 				fConsume();
 				return true;
 			}
-			constexpr json::Type peekOrOpenNext() {
+			constexpr std::pair<json::Type, size_t> peekOrOpenNext() {
 				/* fetch the next token */
 				char32_t c = fNextToken(true);
+				size_t start = pPosition;
 
 				/* check if this is starting an object or array */
 				if (c == U'{' || c == U'[') {
 					fConsume();
-					return (c == U'{' ? json::Type::object : json::Type::array);
+					return { (c == U'{' ? json::Type::object : json::Type::array), start };
 				}
 
 				/* check if its starting a string */
 				if (c == U'\"')
-					return json::Type::string;
+					return { json::Type::string, start };
 
 				/* check if it starts a number */
 				if (c == U'-' || (c >= U'0' && c <= U'9'))
-					return json::Type::inumber;
+					return { json::Type::inumber, start };
 
 				/* check if it starts a constant */
 				if (c == U'n' || c == U't' || c == U'f')
-					return (c == U'n' ? json::Type::null : json::Type::boolean);
+					return { (c == U'n' ? json::Type::null : json::Type::boolean), start };
 
 				/* setup the error */
 				fUnexpectedToken(c, u8"json-value");
-				return json::Type::null;
+				return { json::Type::null, start };
 			}
 			constexpr json::NullType readNull() {
 				fCheckWord(U"null");
@@ -319,6 +322,9 @@ namespace json {
 				char32_t c = fNextToken<true>(true);
 				if (c != str::Invalid)
 					fUnexpectedToken(c, u8"<EOF>");
+			}
+			constexpr size_t end() const {
+				return pPosition;
 			}
 		};
 	}

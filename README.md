@@ -89,6 +89,8 @@ obj["z"] = json::Obj{ { L"abc", 1 }, { L"def", 2 } };
 obj.close();
 ```
 
+The `json::Builder` can also be used to embed already well formatted `JSON` string into the output stream.
+
 ## [json::Reader](json-reader.h)
 
 The `json::Reader` can be used to read a character-stream and fetch the json value simultaneously to parsing the stream. This is suitable for large data-structures, which should be deserialized from json, without an intermediate `json::Value` being contructed. To instantiate a `json::Reader`, the function `json::Read(stream)` is provided. It sets up an internal state, which directly parses the entire character stream.
@@ -117,6 +119,7 @@ if (reader.isObj()) {
     }
 }
 ```
+The `json::Reader` can also be used to determine the position of the object in the `JSON` source stream.
 
 ## [json::Viewer](json-viewer.h)
 

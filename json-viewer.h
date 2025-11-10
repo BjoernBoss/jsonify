@@ -87,7 +87,7 @@ namespace json {
 				return out;
 			}
 			constexpr detail::ViewEntry fValue(detail::ViewState& state) {
-				switch (pDeserializer.peekOrOpenNext()) {
+				switch (pDeserializer.peekOrOpenNext().first) {
 				case json::Type::string: {
 					size_t start = state.strings.size();
 					pDeserializer.readString(state.strings, false);
