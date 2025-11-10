@@ -126,32 +126,8 @@ namespace json {
 		struct ViewAccess {
 			static json::Viewer Make(const std::shared_ptr<detail::ViewState>& state, size_t index);
 		};
-	}
 
-	/* [json::IsJson] json-view of type [value], which can be used to read the current value
-	*	- missing object-keys will return a constant json::Null
-	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
-	class Viewer : private detail::ViewEntry {
-		friend struct detail::ViewAccess;
-	private:
-		std::shared_ptr<detail::ViewState> pState;
-		mutable size_t pLastKey = 0;
-
-	public:
-		constexpr Viewer() : detail::ViewEntry{ json::Null() } {}
-		Viewer(json::Viewer&&) = default;
-		Viewer(const json::Viewer&) = default;
-		json::Viewer& operator=(json::Viewer&&) = default;
-		json::Viewer& operator=(const json::Viewer&) = default;
-
-	private:
-		Viewer(const std::shared_ptr<detail::ViewState>& state, size_t index) : pState{ state }, detail::ViewEntry{ state->entries[index] } {
-			if (std::holds_alternative<detail::ObjViewObject>(*this))
-				pLastKey = std::get<detail::ObjViewObject>(*this).keysAndValues;
-		}
-
-	private:
-		static constexpr bool fConvertible(json::Type t, const detail::ViewEntry& value) {
+		static constexpr bool ViewConvertible(json::Type t, const detail::ViewEntry& value) {
 			switch (t) {
 			case json::Type::array:
 				return std::holds_alternative<detail::ArrViewObject>(value);
@@ -185,17 +161,42 @@ namespace json {
 				return std::holds_alternative<json::Null>(value);
 			}
 		}
-		constexpr bool fLookup(json::StrView k, detail::ObjViewObject obj) const {
+
+		static constexpr bool ViewObjLookup(json::StrView k, detail::ObjViewObject obj, size_t& lastKey, const std::shared_ptr<detail::ViewState>& state) {
 			/* check if the last search matches the key */
-			if (pLastKey < obj.keysAndValues && pState->str(obj.offset + pLastKey) == k)
+			if (lastKey < obj.keysAndValues && state->str(obj.offset + lastKey) == k)
 				return true;
 
 			/* iterate over the values and look for the key */
-			for (pLastKey = 0; pLastKey < obj.keysAndValues; pLastKey += 2) {
-				if (pState->str(obj.offset + pLastKey) == k)
+			for (lastKey = 0; lastKey < obj.keysAndValues; lastKey += 2) {
+				if (state->str(obj.offset + lastKey) == k)
 					return true;
 			}
 			return false;
+		}
+	}
+
+	/* [json::IsJson] json-view of type [value], which can be used to read the current value
+	*	- missing object-keys will return a constant json::Null
+	*	- caches string key lookups for faster multi-accessing
+	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
+	class Viewer : private detail::ViewEntry {
+		friend struct detail::ViewAccess;
+	private:
+		std::shared_ptr<detail::ViewState> pState;
+		mutable size_t pLastKey = 0;
+
+	public:
+		constexpr Viewer() : detail::ViewEntry{ json::Null() } {}
+		Viewer(json::Viewer&&) = default;
+		Viewer(const json::Viewer&) = default;
+		json::Viewer& operator=(json::Viewer&&) = default;
+		json::Viewer& operator=(const json::Viewer&) = default;
+
+	private:
+		Viewer(const std::shared_ptr<detail::ViewState>& state, size_t index) : pState{ state }, detail::ViewEntry{ state->entries[index] } {
+			if (std::holds_alternative<detail::ObjViewObject>(*this))
+				pLastKey = std::get<detail::ObjViewObject>(*this).keysAndValues;
 		}
 
 	public:
@@ -226,7 +227,7 @@ namespace json {
 			return std::holds_alternative<detail::ArrViewObject>(*this);
 		}
 		constexpr bool is(json::Type t) const {
-			return fConvertible(t, *this);
+			return detail::ViewConvertible(t, *this);
 		}
 		constexpr json::Type type() const {
 			if (std::holds_alternative<json::Bool>(*this))
@@ -345,7 +346,7 @@ namespace json {
 				throw json::TypeException(L"json::Viewer is not a object");
 			detail::ObjViewObject obj = std::get<detail::ObjViewObject>(*this);
 
-			if (fLookup(k, obj))
+			if (detail::ViewObjLookup(k, obj, pLastKey, pState))
 				return json::Viewer{ pState, obj.offset + pLastKey + 1 };
 			return nullValue;
 		}
@@ -354,15 +355,15 @@ namespace json {
 				return false;
 			detail::ObjViewObject obj = std::get<detail::ObjViewObject>(*this);
 
-			return fLookup(k, obj);
+			return detail::ViewObjLookup(k, obj, pLastKey, pState);
 		}
 		constexpr bool contains(json::StrView k, json::Type t) const {
 			if (!std::holds_alternative<detail::ObjViewObject>(*this))
 				return false;
 			detail::ObjViewObject obj = std::get<detail::ObjViewObject>(*this);
 
-			if (fLookup(k, obj))
-				return fConvertible(t, pState->entries[obj.offset + pLastKey + 1]);
+			if (detail::ViewObjLookup(k, obj, pLastKey, pState))
+				return detail::ViewConvertible(t, pState->entries[obj.offset + pLastKey + 1]);
 			return false;
 		}
 		constexpr bool typedObject(json::Type t) const {
@@ -371,7 +372,7 @@ namespace json {
 			detail::ObjViewObject obj = std::get<detail::ObjViewObject>(*this);
 
 			for (size_t i = 0; i < obj.keysAndValues; i += 2) {
-				if (!fConvertible(t, pState->entries[obj.offset + i + 1]))
+				if (!detail::ViewConvertible(t, pState->entries[obj.offset + i + 1]))
 					return false;
 			}
 			return true;
@@ -401,7 +402,7 @@ namespace json {
 				return false;
 			detail::ArrViewObject arr = std::get<detail::ArrViewObject>(*this);
 
-			return (i < arr.size && fConvertible(t, pState->entries[arr.offset + i]));
+			return (i < arr.size && detail::ViewConvertible(t, pState->entries[arr.offset + i]));
 		}
 		constexpr bool typedArray(json::Type t) const {
 			if (!std::holds_alternative<detail::ArrViewObject>(*this))
@@ -409,7 +410,7 @@ namespace json {
 			detail::ArrViewObject arr = std::get<detail::ArrViewObject>(*this);
 
 			for (size_t i = 0; i < arr.size; ++i) {
-				if (!fConvertible(t, pState->entries[arr.offset + i]))
+				if (!detail::ViewConvertible(t, pState->entries[arr.offset + i]))
 					return false;
 			}
 			return true;
@@ -514,6 +515,19 @@ namespace json {
 		constexpr bool empty() const {
 			return (pSelf.size == 0);
 		}
+		constexpr bool has(size_t i) const {
+			return (i < pSelf.size);
+		}
+		constexpr bool has(size_t i, json::Type t) const {
+			return (i < pSelf.size && detail::ViewConvertible(t, pState->entries[pSelf.offset + i]));
+		}
+		constexpr bool typedArray(json::Type t) const {
+			for (size_t i = 0; i < pSelf.size; ++i) {
+				if (!detail::ViewConvertible(t, pState->entries[pSelf.offset + i]))
+					return false;
+			}
+			return true;
+		}
 		json::Viewer at(size_t index) const {
 			if (index >= pSelf.size)
 				throw json::RangeException(L"Array index out of range");
@@ -523,6 +537,7 @@ namespace json {
 
 	/* [json::IsJson] json-view of type [object], which can be used to read the corresponding object value
 	*	- missing object-keys will return a constant json::Null
+	*	- caches string key lookups for faster multi-accessing
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	class ObjViewer {
 		friend class json::Viewer;
@@ -605,20 +620,6 @@ namespace json {
 			pLastKey = pSelf.keysAndValues;
 		}
 
-	private:
-		constexpr bool fLookup(json::StrView k) const {
-			/* check if the last search matches the key */
-			if (pLastKey < pSelf.keysAndValues && pState->str(pSelf.offset + pLastKey) == k)
-				return true;
-
-			/* iterate over the values and look for the key */
-			for (pLastKey = 0; pLastKey < pSelf.keysAndValues; pLastKey += 2) {
-				if (pState->str(pSelf.offset + pLastKey) == k)
-					return true;
-			}
-			return false;
-		}
-
 	public:
 		json::Viewer operator[](json::StrView k) const {
 			return this->at(k);
@@ -632,7 +633,7 @@ namespace json {
 			return iterator{ pState, pSelf.offset + pSelf.keysAndValues };
 		}
 		iterator find(json::StrView k) const {
-			if (!fLookup(k))
+			if (!detail::ViewObjLookup(k, pSelf, pLastKey, pState))
 				return iterator{ pState, pSelf.offset + pSelf.keysAndValues };
 			return iterator{ pState, pSelf.offset + pLastKey };
 		}
@@ -643,11 +644,23 @@ namespace json {
 			return (pSelf.keysAndValues == 0);
 		}
 		constexpr bool contains(json::StrView k) const {
-			return fLookup(k);
+			return detail::ViewObjLookup(k, pSelf, pLastKey, pState);
+		}
+		constexpr bool contains(json::StrView k, json::Type t) const {
+			if (!detail::ViewObjLookup(k, pSelf, pLastKey, pState))
+				return false;
+			return detail::ViewConvertible(t, pState->entries[pSelf.offset + pLastKey + 1]);
+		}
+		constexpr bool typedObject(json::Type t) const {
+			for (size_t i = 0; i < pSelf.keysAndValues; i += 2) {
+				if (!detail::ViewConvertible(t, pState->entries[pSelf.offset + i + 1]))
+					return false;
+			}
+			return true;
 		}
 		json::Viewer at(json::StrView k) const {
 			static json::Viewer nullValue{};
-			if (fLookup(k))
+			if (detail::ViewObjLookup(k, pSelf, pLastKey, pState))
 				return detail::ViewAccess::Make(pState, pSelf.offset + pLastKey + 1);
 			return nullValue;
 		}
