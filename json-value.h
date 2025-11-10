@@ -10,7 +10,7 @@
 namespace json {
 	class Value;
 
-	/* json::Arr is a std::vector of json::Values with some additional ease-of-use functions
+	/* [json::IsArray] json::Arr is a std::vector of json::Values with some additional ease-of-use functions
 	*	- original behavior of std::vector is not modified */
 	struct Arr : public std::vector<json::Value> {
 	private:
@@ -25,7 +25,7 @@ namespace json {
 		constexpr bool typedArray(json::Type t) const;
 	};
 
-	/* json::Obj is a std::unordered_map of json::Str to json::Values with some additional ease-of-use functions
+	/* [json::IsObject] json::Obj is a std::unordered_map of json::Str to json::Values with some additional ease-of-use functions
 	*	- original behavior of std::unordered_map is not modified */
 	struct Obj : public std::unordered_map<json::Str, json::Value> {
 	private:
@@ -53,7 +53,7 @@ namespace json {
 	*	- default initialized as null
 	*	- uses json::Null/json::UNum/json::INum/json::Real/json::Bool/json::Arr/json::Str/json::Obj
 	*	- user-friendly and will convert to requested type whenever possible
-	*	- missing object-keys will either insert json::Null or return a constant json::Null
+	*	- missing object-keys will either insert json::Null or throw an exception for constant views
 	*	- uses str::CodeError::replace for any string transcoding while assigning strings */
 	class Value : private detail::ValueParent {
 	public:
@@ -506,14 +506,12 @@ namespace json {
 			return this->at(k);
 		}
 		const json::Value& at(const json::Str& k) const {
-			static json::Value nullValue = json::Null;
-
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
 				throw json::TypeException(L"json::Value is not a object");
 			const json::Obj& obj = *std::get<detail::ObjPtr>(*this);
 			auto it = obj.find(k);
 			if (it == obj.end())
-				return nullValue;
+				throw json::RangeException(L"Object key is undefined");
 			return it->second;
 		}
 		json::Value& at(const json::Str& k) {

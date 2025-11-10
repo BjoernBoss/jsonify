@@ -348,7 +348,7 @@ namespace json {
 		}
 	};
 
-	/* [json::IsJson] json-reader of type [array], which can be used to read the corresponding array value
+	/* [json::IsArray] json-reader of type [array], which can be used to read the corresponding array value
 	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value)
 	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
 	template <json::IsReadType StreamType, str::CodeError Error>
@@ -462,7 +462,7 @@ namespace json {
 		}
 	};
 
-	/* [json::IsJson] json-reader of type [object], which can be used to read the corresponding object values
+	/* [json::IsObject] json-reader of type [object], which can be used to read the corresponding object values
 	*	(values can only be read once, and any unread child-values will be discarded upon reading the next value)
 	*	Note: Although this is a light-weight object, it can only be moved around, as it references the current progress of the reading */
 	template <json::IsReadType StreamType, str::CodeError Error>

@@ -178,7 +178,6 @@ namespace json {
 
 	/* [json::IsJson] json-view of type [value], which can be used to read the current value
 	*	- default initialized as null
-	*	- missing object-keys will return a constant json::Null
 	*	- caches string key lookups for faster multi-accessing
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	class Viewer : private detail::ViewEntry {
@@ -347,7 +346,7 @@ namespace json {
 
 			if (detail::ViewObjLookup(k, obj, pLastKey, pState))
 				return json::Viewer{ pState, obj.offset + pLastKey + 1 };
-			return json::Viewer{};
+			throw json::RangeException(L"Object key is undefined");
 		}
 		constexpr bool contains(json::StrView k) const {
 			if (!std::holds_alternative<detail::ObjViewObject>(*this))
@@ -416,7 +415,7 @@ namespace json {
 		}
 	};
 
-	/* [json::IsJson] json-view of type [array], which can be used to read the corresponding array value
+	/* [json::IsArray] json-view of type [array], which can be used to read the corresponding array value
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	class ArrViewer {
 		friend class json::Viewer;
@@ -534,8 +533,7 @@ namespace json {
 		}
 	};
 
-	/* [json::IsJson] json-view of type [object], which can be used to read the corresponding object value
-	*	- missing object-keys will return a constant json::Null
+	/* [json::IsObject] json-view of type [object], which can be used to read the corresponding object value
 	*	- caches string key lookups for faster multi-accessing
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	class ObjViewer {
@@ -660,7 +658,7 @@ namespace json {
 		json::Viewer at(json::StrView k) const {
 			if (detail::ViewObjLookup(k, pSelf, pLastKey, pState))
 				return detail::ViewAccess::Make(pState, pSelf.offset + pLastKey + 1);
-			return json::Viewer{};
+			throw json::RangeException(L"Object key is undefined");
 		}
 	};
 
