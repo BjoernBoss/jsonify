@@ -84,13 +84,10 @@ namespace json {
 	concept IsString = str::IsStr<Type>;
 
 	namespace detail {
+		template <class Type> struct IsObjIt { static constexpr bool value = false; };
+		template <json::IsString A, class B> struct IsObjIt<std::pair<A, B>> { static constexpr bool value = true; };
 		template <class Type>
-		concept IsPair = requires(const Type t) {
-			{ t.first };
-			{ t.second };
-		};
-		template <class Type>
-		concept IsNotPair = !detail::IsPair<Type>;
+		concept IsObjItConcept = detail::IsObjIt<std::remove_cvref_t<Type>>::value;
 
 		/*
 		*	why this weird design instead of just testing for it being an iterator?
@@ -105,19 +102,21 @@ namespace json {
 			typename Type::const_iterator::value_type;
 			{ t.begin() } -> std::convertible_to<typename Type::const_iterator>;
 			{ t.end() } -> std::convertible_to<decltype(t.begin())>;
+			{ std::declval<typename Type::const_iterator::value_type>() } -> detail::IsObjItConcept;
 			//{ *t.begin() } -> detail::IsPair;
-			//{ (*t.begin()).first } -> json::IsString;
-			{ std::declval<typename Type::const_iterator::value_type>() } -> detail::IsPair;
-			{ std::declval<typename Type::const_iterator::value_type>().first } -> json::IsString;
 		};
+
+		template <class Type> struct IsArrIt { static constexpr bool value = true; };
+		template <class A, class B> struct IsArrIt<std::pair<A, B>> { static constexpr bool value = false; };
+		template <class Type>
+		concept IsArrItConcept = detail::IsArrIt<std::remove_cvref_t<Type>>::value;
 
 		template <class Type>
 		concept IsArray = requires(const Type t) {
 			typename Type::const_iterator;
-			typename Type::const_iterator::value_type;
 			{ t.begin() } -> std::convertible_to<typename Type::const_iterator>;
 			{ t.end() } -> std::convertible_to<decltype(t.begin())>;
-			{ *t.begin() } -> detail::IsNotPair;
+			{ *t.begin() } -> detail::IsArrItConcept;
 		};
 	}
 

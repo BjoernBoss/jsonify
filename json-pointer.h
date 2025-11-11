@@ -23,7 +23,8 @@ namespace json {
 			bool separatorFound = false, inEscape = false;
 			while (path.valid()) {
 				char32_t cp = path.next();
-				if (separatorFound = (cp == U'/'))
+				separatorFound = (cp == U'/');
+				if (separatorFound)
 					break;
 
 				/* check if this is part of an escape sequence */
