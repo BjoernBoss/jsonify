@@ -148,3 +148,10 @@ if (viewer.isObj()) {
 ## [json::AnyBuilder](json-builder.h), [json::AnyReader](json-reader.h)
 
 As `json::Builder` and `json::Reader` are templated, and based on the type of the sink/stream, the `json::AnyBuilder` and corresponding function `json::BuildAny(sink, indent)`, as well as `json::AnyReader` and corresponding `json::ReadAny(stream)`, are provided. They provide a generic type-independent builder/reader type by hiding the underlying type, using inheritance. The building/reading is therefore slightly more expensive, while offering independence of the type as a trade-off.
+
+
+## [json::Pointer, json::Resolve](json-pointer.h)
+
+The function `json::Resolve` allows to resolve a given well formed `JSON Pointer` into a `json::Value` or `json::Viewer`, and return the corresponding target object.
+
+The functions `json::Pointer` and `json::PointerTo` can be used to construct a well formed and escaped `JSON Pointer` string.

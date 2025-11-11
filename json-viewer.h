@@ -176,7 +176,7 @@ namespace json {
 		}
 	}
 
-	/* [json::IsJson] json-view of type [value], which can be used to read the current value
+	/* [json::IsValue] json-view of type [value], which can be used to read the current value
 	*	- default initialized as null
 	*	- caches string key lookups for faster multi-accessing
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */

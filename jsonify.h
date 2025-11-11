@@ -8,3 +8,4 @@
 #include "json-serialize.h"
 #include "json-deserialize.h"
 #include "json-value.h"
+#include "json-pointer.h"

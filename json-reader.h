@@ -208,7 +208,7 @@ namespace json {
 		};
 	}
 
-	/* [json::IsJson] json-reader of type [value], which can be used to read the current value (array or object-readers can only be opened once)
+	/* [json::IsValue] json-reader of type [value], which can be used to read the current value (array or object-readers can only be opened once)
 	*	Note: This is a light-weight object, which can just be copied around, as it keeps a reference to the actual state */
 	template <json::IsReadType StreamType, str::CodeError Error>
 	class Reader : private detail::ReaderParent<StreamType, Error> {

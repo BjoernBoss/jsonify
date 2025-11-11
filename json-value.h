@@ -49,7 +49,7 @@ namespace json {
 		using ValueParent = std::variant<json::NullType, json::UNum, json::INum, json::Real, json::Bool, detail::ArrPtr, detail::StrPtr, detail::ObjPtr>;
 	}
 
-	/* [json::IsJson] representation of a single json value of any kind
+	/* [json::IsValue] representation of a single json value of any kind
 	*	- default initialized as null
 	*	- uses json::Null/json::UNum/json::INum/json::Real/json::Bool/json::Arr/json::Str/json::Obj
 	*	- user-friendly and will convert to requested type whenever possible
