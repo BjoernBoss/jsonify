@@ -135,7 +135,7 @@ json::Viewer viewer = json::View(file);
 /* check if the read is an object */
 if (viewer.isObj()) {
     json::Value _t0;
-    unsigned int _t1;
+    unsigned long long _t1;
 
     /* check if the necessary keys exist */
     if (viewer.contains(L"abc", json::Type::string) && viewer.contains(L"def", json::Type::unumber)) {

@@ -65,7 +65,8 @@ namespace json {
 			size_t pNextStamp = 0;
 
 		public:
-			constexpr ReaderState(ActStream&& stream) : pDeserializer{ stream } {}
+			constexpr ReaderState(ActStream& stream) : pDeserializer{ stream } {}
+			constexpr ReaderState(ActStream&& stream) : pDeserializer{ std::move(stream) } {}
 			constexpr ~ReaderState() {
 				/* close all opened objects (will ensure the entire json is parsed properly) */
 				while (!pActive.empty())
