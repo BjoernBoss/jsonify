@@ -69,7 +69,7 @@ namespace json {
 			}
 
 		public:
-			constexpr JsonDeserializer(auto&& stream, json::Value& out) : pDeserializer{ std::forward<StreamType>(stream) } {
+			constexpr JsonDeserializer(StreamType& stream, json::Value& out) : pDeserializer{ stream } {
 				fValue(out);
 				pDeserializer.checkDone();
 			}
@@ -85,7 +85,7 @@ namespace json {
 		using StreamType = decltype(stream);
 
 		json::Value out;
-		detail::JsonDeserializer<std::remove_reference_t<StreamType>, Error> _deserializer{ std::forward<StreamType>(stream), out };
+		detail::JsonDeserializer<std::remove_reference_t<StreamType>, Error> _deserializer{ stream, out };
 		return out;
 	}
 }

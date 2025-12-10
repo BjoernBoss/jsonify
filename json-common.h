@@ -40,9 +40,9 @@ namespace json {
 	};
 
 	/* exception thrown when using the library in an invalid way */
-	struct Exception : public str::BuildException {
+	struct Exception : public str::wd::BuildException {
 		template <class... Args>
-		constexpr Exception(const Args&... args) : str::BuildException{ args... } {}
+		constexpr Exception(const Args&... args) : str::wd::BuildException{ args... } {}
 	};
 
 	/* exception thrown when accessing a constant json::Value as a certain type, which it is not */

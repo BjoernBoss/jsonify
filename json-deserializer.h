@@ -31,8 +31,7 @@ namespace json {
 			char32_t pLastToken = str::Invalid;
 
 		public:
-			template <class Type>
-			constexpr Deserializer(Type&& s) : pStream{ std::forward<Type>(s) } {}
+			constexpr Deserializer(StreamType& s) : pStream{ s } {}
 
 		private:
 			template <bool AllowEndOfStream>
@@ -184,7 +183,7 @@ namespace json {
 				return json::Null;
 			}
 			constexpr json::Bool readBoolean() {
-				if (fNextToken(false) == 't') {
+				if (fNextToken(false) == U't') {
 					fCheckWord(U"true");
 					return json::Bool(true);
 				}
@@ -201,20 +200,20 @@ namespace json {
 					char32_t c = fNextToken<true>(false);
 
 					/* update the state-machine */
-					if (c == '-' && (state == NumState::preSign || state == NumState::preExpSign)) {
+					if (c == U'-' && (state == NumState::preSign || state == NumState::preExpSign)) {
 						if (state == NumState::preSign)
 							neg = true;
 						state = (state == NumState::preSign) ? NumState::preDigits : NumState::preExponent;
 					}
-					else if (c == '+' && state == NumState::preExpSign)
+					else if (c == U'+' && state == NumState::preExpSign)
 						state = NumState::preExponent;
-					else if (c == '.' && (state == NumState::inDigits || state == NumState::postDigits))
+					else if (c == U'.' && (state == NumState::inDigits || state == NumState::postDigits))
 						state = NumState::preFraction;
-					else if ((c == 'e' || c == 'E') && (state == NumState::inDigits || state == NumState::postDigits || state == NumState::inFraction))
+					else if ((c == U'e' || c == U'E') && (state == NumState::inDigits || state == NumState::postDigits || state == NumState::inFraction))
 						state = NumState::preExpSign;
-					else if (c >= '0' && c <= '9' && state != NumState::postDigits) {
+					else if (c >= U'0' && c <= U'9' && state != NumState::postDigits) {
 						if (state == NumState::preSign || state == NumState::preDigits)
-							state = (c == '0') ? NumState::postDigits : NumState::inDigits;
+							state = (c == U'0') ? NumState::postDigits : NumState::inDigits;
 						else if (state == NumState::preFraction)
 							state = NumState::inFraction;
 						else if (state == NumState::preExpSign || state == NumState::preExponent)

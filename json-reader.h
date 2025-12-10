@@ -65,8 +65,7 @@ namespace json {
 			size_t pNextStamp = 0;
 
 		public:
-			template <class Type>
-			constexpr ReaderState(Type&& stream) : pDeserializer{ std::forward<Type>(stream) } {}
+			constexpr ReaderState(ActStream&& stream) : pDeserializer{ stream } {}
 			constexpr ~ReaderState() {
 				/* close all opened objects (will ensure the entire json is parsed properly) */
 				while (!pActive.empty())
@@ -643,11 +642,11 @@ namespace json {
 	*	Note: Can be used to determine json value locations in the source stream
 	*	Note: Must not outlive the stream as it may store a reference to it */
 	template <str::IsStream StreamType, str::CodeError Error = str::CodeError::replace>
-	constexpr json::Reader<std::remove_reference_t<StreamType>, Error> Read(StreamType&& stream) {
+	constexpr json::Reader<std::remove_reference_t<StreamType>, Error> Read(StreamType& stream) {
 		using ActStream = std::remove_reference_t<StreamType>;
 
 		/* setup the first state and fetch the initial value */
-		auto state = std::make_shared<detail::ReaderState<ActStream, Error>>(std::forward<StreamType>(stream));
+		auto state = std::make_shared<detail::ReaderState<ActStream, Error>>(stream);
 		return state->initValue(state);
 	}
 
@@ -667,11 +666,11 @@ namespace json {
 	*	by using inheritance internally, and is otherwise equivalent to json::Read (uses Error = str::CodeError::replace)
 	*	Note: Must not outlive the sink as it stores a reference to it */
 	template <str::IsStream StreamType>
-	json::AnyReader ReadAny(StreamType&& stream) {
+	json::AnyReader ReadAny(StreamType& stream) {
 		using ActStream = std::remove_reference_t<StreamType>;
 
 		/* wrap the stream to be held by the reader */
-		std::unique_ptr<str::InheritStream> readStream = std::make_unique<str::StreamImplementation<ActStream>>(std::forward<StreamType>(stream));
+		std::unique_ptr<str::InheritStream> readStream = std::make_unique<str::StreamImplementation<ActStream>>(stream);
 
 		/* setup the first state and fetch the initial value */
 		auto state = std::make_shared<detail::ReaderState<detail::ReadAnyType, str::CodeError::replace>>(std::move(readStream));

@@ -128,10 +128,9 @@ namespace json {
 
 	/* append the given steps to a json pointer in the sink and return a reference to it
 	*	(sink must either be empty, or an already valid json pointer to append to) */
-	constexpr auto& PointerTo(str::IsSink auto&& sink, const json::IsStep auto&... steps) {
+	constexpr void PointerTo(str::IsSink auto&& sink, const json::IsStep auto&... steps) {
 		if constexpr (sizeof...(steps) > 0)
 			detail::AppendAll(sink, steps...);
-		return sink;
 	}
 
 	/* create a json pointer for the given steps and write them to an object of [SinkType] and return it */
