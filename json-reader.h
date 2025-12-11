@@ -65,6 +65,7 @@ namespace json {
 			size_t pNextStamp = 0;
 
 		public:
+			constexpr ReaderState(const str::IsStr auto& stream) : pDeserializer{ stream } {}
 			constexpr ReaderState(ActStream&& stream) : pDeserializer{ std::forward<ActStream>(stream) } {}
 			constexpr ~ReaderState() {
 				/* close all opened objects (will ensure the entire json is parsed properly) */
@@ -640,11 +641,13 @@ namespace json {
 	/* construct a json value-reader from the given stream and ensure that the entire stream is a single valid
 	*	json-value and parse and validate the json along reading it instead of parsing it in its entirety beforehand
 	*	Note: Can be used to determine json value locations in the source stream
-	*	Note: For rvalues, a local move-constructed value of the stream is held, otherwise a reference is held and it must not outlive the stream */
+	*	Note: lifetime requirements of str::Stream apply */
 	template <str::IsStream StreamType, str::CodeError Error = str::CodeError::replace>
-	constexpr json::Reader<StreamType, Error> Read(StreamType&& stream) {
+	constexpr json::Reader<str::StreamType<StreamType>, Error> Read(StreamType&& stream) {
+		using BaseType = str::StreamType<StreamType>;
+
 		/* setup the first state and fetch the initial value */
-		auto state = std::make_shared<detail::ReaderState<StreamType, Error>>(std::forward<StreamType>(stream));
+		auto state = std::make_shared<detail::ReaderState<BaseType, Error>>(std::forward<StreamType>(stream));
 		return state->initValue(state);
 	}
 
@@ -663,11 +666,13 @@ namespace json {
 	/* construct a json any-value-reader from the given stream, which hides the actual stream-type
 	*	by using inheritance internally, and is otherwise equivalent to json::Read (uses Error = str::CodeError::replace)
 	*	Note: Can be used to determine json value locations in the source stream
-	*	Note: For rvalues, a local move-constructed value of the stream is held, otherwise a reference is held and it must not outlive the stream */
+	*	Note: lifetime requirements of str::Stream apply */
 	template <str::IsStream StreamType>
 	json::AnyReader ReadAny(StreamType&& stream) {
+		using BaseType = str::StreamType<StreamType>;
+
 		/* wrap the stream to be held by the reader */
-		std::unique_ptr<str::InheritStream> readStream = std::make_unique<str::StreamImplementation<StreamType>>(std::forward<StreamType>(stream));
+		std::unique_ptr<str::InheritStream> readStream = std::make_unique<str::StreamImplementation<BaseType>>(std::forward<StreamType>(stream));
 
 		/* setup the first state and fetch the initial value */
 		auto state = std::make_shared<detail::ReaderState<detail::ReadAnyType, str::CodeError::replace>>(std::move(readStream));
