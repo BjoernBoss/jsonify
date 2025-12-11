@@ -59,9 +59,9 @@ auto _v1 = json::Deserialize(u"{ \"1\": 50, \"2\": null, \"3\": [] }");
 
 The `json::Builder` can be used to continuously construct a serialized json-string. Suitable for large data-structures, which should be serialized to json, without an intermediate `json::Value` being constructed. To instantiate a `json::Builder`, the function `json::Build(sink, indent)` is provided. It sets up an internal state, which serializes directly out to the string-sink.
 
-The builder will not prevent duplicate keys being written out to objects.
+The builder will not prevent duplicate keys being written out to objects. But this sequential writing allows for already well-formatted json content to be written out, instead of values.
 
-Important: The builder must not outlive the sink, as it internally stores a reference to the sink.
+Important: Regarding to the lifetime of the source objects, the reader uses the same lifetime model, as `ustring`.
 
 ```C++
 std::ofstream file = /* ... */;
@@ -95,15 +95,15 @@ The `json::Builder` can also be used to embed already well formatted `JSON` stri
 
 The `json::Reader` can be used to read a character-stream and fetch the json value simultaneously to parsing the stream. This is suitable for large data-structures, which should be deserialized from json, without an intermediate `json::Value` being contructed. To instantiate a `json::Reader`, the function `json::Read(stream)` is provided. It sets up an internal state, which directly parses the entire character stream.
 
-Due to the nature of the reader, objects cannot be accessed in random order, and duplicate keys will all be forwarded.
+Due to the nature of the reader, objects cannot be accessed in random order, and duplicate keys will all be forwarded. But this sequential reading, allows for the object's origin range in the source string to be queried.
 
-Important: The reader must not outlive the stream, as it internally stores a reference to the stream.
+Important: Regarding to the lifetime of the source objects, the reader uses the same lifetime model, as `ustring`.
 
 ```C++
 std::ifstream file = /* ... */;
 
 /* reader which can be of any type */
-json::Reader<std::ifstream> reader = json::Read(file);
+json::Reader<std::ifstream&> reader = json::Read(file);
 
 /* check if the read is an object */
 if (reader.isObj()) {

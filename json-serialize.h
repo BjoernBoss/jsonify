@@ -67,7 +67,7 @@ namespace json {
 			}
 
 		public:
-			constexpr JsonSerializer(auto&& sink, std::wstring_view indent, const auto& v) : pSerializer{ std::forward<SinkType>(sink), indent } {
+			constexpr JsonSerializer(SinkType&& sink, std::wstring_view indent, const auto& v) : pSerializer{ std::forward<SinkType>(sink), indent } {
 				fWrite(v);
 			}
 		};
@@ -77,7 +77,9 @@ namespace json {
 	*	only contain spaces and tabs, if indentation is empty, a compact json stream will be produced) */
 	template <str::CodeError Error = str::CodeError::replace>
 	constexpr void SerializeTo(str::IsSink auto&& sink, const json::IsJson auto& value, std::wstring_view indent = L"\t") {
-		detail::JsonSerializer<decltype(sink), Error> _serializer{ sink, indent, value };
+		using SinkType = decltype(sink);
+
+		detail::JsonSerializer<SinkType, Error> _serializer{ std::forward<SinkType>(sink), indent, value };
 	}
 
 	/* serialize the json-like object to an object of the given sink-type using json::SerializeTo and return it (indentation

@@ -401,14 +401,12 @@ namespace json {
 	*	values out immediately, preventing an intermediate state from being created (indentation will be sanitized
 	*	to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced)
 	*	Note: Can be used to write already well formatted json value strings to the output stream
-	*	Note: Must not outlive the sink as it stores a reference to it */
+	*	Note: For rvalues, a local move-constructed value of the sink is held, otherwise a reference is held and it must not outlive the sink */
 	template <str::IsSink SinkType, str::CodeError Error = str::CodeError::replace>
-	constexpr json::Builder<std::remove_cvref_t<SinkType>, Error> Build(SinkType& sink, std::wstring_view indent = L"\t") {
-		using ActSink = std::remove_cvref_t<SinkType>;
-
+	constexpr json::Builder<SinkType, Error> Build(SinkType&& sink, std::wstring_view indent = L"\t") {
 		/* setup the shared state and setup the root value */
-		auto state = std::make_shared<detail::BuilderState<ActSink, Error>>(sink, indent);
-		return detail::BuildAccess::MakeValue<ActSink, Error>(state, state->allocFirst());
+		auto state = std::make_shared<detail::BuilderState<SinkType, Error>>(std::forward<SinkType>(sink), indent);
+		return detail::BuildAccess::MakeValue<SinkType, Error>(state, state->allocFirst());
 	}
 
 	/* same as json::Builder, but uses inheritance to hide the underlying sink-type
@@ -425,13 +423,12 @@ namespace json {
 
 	/* construct a json any-builder-value to the given sink, using the corresponding indentation but hide
 	*	the actual sink-type by using inheritance internally, and is otherwise equivalent to json::Build (uses Error = str::CodeError::replace)
-	*	Note: Must not outlive the sink as it stores a reference to it */
+	*	Note: Can be used to write already well formatted json value strings to the output stream
+	*	Note: For rvalues, a local move-constructed value of the sink is held, otherwise a reference is held and it must not outlive the sink */
 	template <str::IsSink SinkType>
-	json::AnyBuilder BuildAny(SinkType& sink, std::wstring_view indent = L"\t") {
-		using ActSink = std::remove_cvref_t<SinkType>;
-
+	json::AnyBuilder BuildAny(SinkType&& sink, std::wstring_view indent = L"\t") {
 		/* wrap the sink to be held by the builder */
-		std::unique_ptr<str::InheritSink> buildSink = std::make_unique<str::SinkImplementation<ActSink>>(sink);
+		std::unique_ptr<str::InheritSink> buildSink = std::make_unique<str::SinkImplementation<SinkType>>(std::forward<SinkType>(sink));
 
 		/* setup the shared state and setup the root value */
 		auto state = std::make_shared<detail::BuilderState<detail::BuildAnyType, str::CodeError::replace>>(std::move(buildSink), indent);

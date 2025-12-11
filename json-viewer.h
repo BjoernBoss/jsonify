@@ -116,7 +116,7 @@ namespace json {
 			}
 
 		public:
-			constexpr ViewDeserializer(StreamType& stream, detail::ViewState& out) : pDeserializer{ stream } {
+			constexpr ViewDeserializer(StreamType&& stream, detail::ViewState& out) : pDeserializer{ std::forward<StreamType>(stream) } {
 				out.entries.emplace_back();
 				out.entries[0] = fValue(out);
 				pDeserializer.checkDone();
@@ -688,7 +688,7 @@ namespace json {
 		using StreamType = decltype(stream);
 
 		std::shared_ptr<detail::ViewState> state = std::make_shared<detail::ViewState>();
-		detail::ViewDeserializer<std::remove_reference_t<StreamType>, Error> _deserializer{ stream, *state.get() };
+		detail::ViewDeserializer<StreamType, Error> _deserializer{ std::forward<StreamType>(stream), *state.get() };
 		return detail::ViewAccess::Make(state, 0);
 	}
 }

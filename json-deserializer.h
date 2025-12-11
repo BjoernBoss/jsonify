@@ -31,7 +31,7 @@ namespace json {
 			char32_t pLastToken = str::Invalid;
 
 		public:
-			constexpr Deserializer(StreamType& s) : pStream{ s } {}
+			constexpr Deserializer(StreamType&& s) : pStream{ std::forward<StreamType>(s) } {}
 
 		private:
 			template <bool AllowEndOfStream>

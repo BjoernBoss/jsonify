@@ -70,7 +70,7 @@ namespace json {
 		Value(json::Str&& v) : detail::ValueParent{ std::make_unique<json::Str>(std::move(v)) } {}
 		constexpr Value(const json::IsJson auto& v) : detail::ValueParent{ json::Null } {
 			using Type = decltype(v);
-			fAssignValue<Type>(std::forward<Type>(v));
+			fAssignValue<Type>(v);
 		}
 
 	public:
@@ -105,7 +105,7 @@ namespace json {
 		}
 		constexpr json::Value& operator=(const json::IsJson auto& v) {
 			using Type = decltype(v);
-			fAssignValue<Type>(std::forward<Type>(v));
+			fAssignValue<Type>(v);
 			return *this;
 		}
 		constexpr bool operator==(const json::Value& v) const {
@@ -182,7 +182,7 @@ namespace json {
 				static_cast<detail::ValueParent&>(*this) = std::get<json::UNum>(v);
 		}
 		template <class Type>
-		constexpr void fAssignValue(Type&& val) {
+		constexpr void fAssignValue(const Type& val) {
 			if constexpr (json::IsObject<Type>) {
 				fEnsureType(json::Type::object);
 				json::Obj& obj = *std::get<detail::ObjPtr>(*this);
