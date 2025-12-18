@@ -127,7 +127,7 @@ namespace json {
 				for (size_t i = 1; i < word.size(); ++i) {
 					char32_t c = fConsumeAndNext(false);
 					if (c != word[i])
-						fUnexpectedToken(c, str::u8::Format(u8"[{}] of [{}]", c, word).c_str());
+						fUnexpectedToken(c, str::u8::Format(u8"[{}] of [{}]", word[i], word).c_str());
 				}
 				fConsume();
 			}

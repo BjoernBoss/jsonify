@@ -67,7 +67,7 @@ Important: Regarding to the lifetime of the source objects, the reader uses the 
 std::ofstream file = /* ... */;
 
 /* builder expects to be assigned any value */
-json::Builder<std::ofstream> builder = json::Build(file, L"  ");
+json::Builder<std::ofstream&> builder = json::Build(file, L"  ");
 
 /* make the root builder an object */
 auto obj = builder.obj();

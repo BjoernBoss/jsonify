@@ -12,8 +12,8 @@ namespace json {
 	concept IsStep = std::convertible_to<Type, size_t> || str::IsStr<Type>;
 
 	namespace detail {
-		template <class Type, class ChType>
-		const Type* NextResolve(const Type& value, json::Str& buffer, str::Iterator<ChType, str::CodeError::replace>& path) {
+		template <class Type, class ChType, class ItType>
+		const Type* NextResolve(const Type& value, json::Str& buffer, ItType it, ItType end) {
 			/* check if the object can be indexed */
 			if (!value.isArr() && !value.isObj())
 				return nullptr;
@@ -21,8 +21,8 @@ namespace json {
 
 			/* find the end of the next component and replace any escape sequences */
 			bool separatorFound = false, inEscape = false;
-			while (path.valid()) {
-				char32_t cp = path.next();
+			while (++it != end) {
+				char32_t cp = *it;
 				separatorFound = (cp == U'/');
 				if (separatorFound)
 					break;
@@ -62,25 +62,25 @@ namespace json {
 			/* check if the value could be resolved and if the end has been reached */
 			if (out == nullptr || !separatorFound)
 				return out;
-			return detail::NextResolve<Type, ChType>(*out, buffer, path);
+			return detail::NextResolve<Type, ChType>(*out, buffer, it, end);
 		}
 
 		template <class Type>
 		const Type* FirstResolve(const Type& value, const auto& path) {
 			using ChType = str::StringChar<decltype(path)>;
 			std::basic_string_view<ChType> view{ path };
-			str::Iterator<ChType, str::CodeError::replace> it{ view };
+			str::CPIterator<ChType, str::CodeError::replace> cps{ view };
+			auto it = cps.begin();
 
 			/* check if the path points to the root */
-			if (!it.valid())
+			if (it == cps.end())
 				return &value;
-			char32_t cp = it.next();
 
 			/* ensure that the path is well-formed */
-			if (cp != U'/')
+			if (*it != U'/')
 				return nullptr;
 			json::Str buffer;
-			return detail::NextResolve<Type, ChType>(value, buffer, it);
+			return detail::NextResolve<Type, ChType>(value, buffer, it, cps.end());
 		}
 
 		constexpr void AppendTo(auto& sink, const str::IsStr auto& next) {
@@ -91,9 +91,7 @@ namespace json {
 			str::CodepointTo(sink, U'/');
 
 			/* escape the codepoints from the next component to the output */
-			str::Iterator<ChType, str::CodeError::replace> it{ view };
-			while (it.valid()) {
-				char32_t cp = it.next();
+			for (char32_t cp : str::CPIterator<ChType, str::CodeError::replace>{ view }) {
 				if (cp == U'~')
 					str::FastcodeAllTo(sink, U"~0");
 				else if (cp == U'/')
