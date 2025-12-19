@@ -69,7 +69,7 @@ namespace json {
 		const Type* FirstResolve(const Type& value, const auto& path) {
 			using ChType = str::StringChar<decltype(path)>;
 			std::basic_string_view<ChType> view{ path };
-			str::CPIterator<ChType, str::CodeError::replace> cps{ view };
+			str::CPRange<ChType, str::CodeError::replace> cps{ view };
 			auto it = cps.begin();
 
 			/* check if the path points to the root */
@@ -91,7 +91,7 @@ namespace json {
 			str::CodepointTo(sink, U'/');
 
 			/* escape the codepoints from the next component to the output */
-			for (char32_t cp : str::CPIterator<ChType, str::CodeError::replace>{ view }) {
+			for (char32_t cp : str::CPRange<ChType, str::CodeError::replace>{ view }) {
 				if (cp == U'~')
 					str::FastcodeAllTo(sink, U"~0");
 				else if (cp == U'/')
