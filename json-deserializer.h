@@ -103,7 +103,7 @@ namespace json {
 
 				/* decode the four hexits */
 				uint32_t num = 0;
-				for (size_t j = 0; j < 4; j++) {
+				for (size_t j = 0; j < 4; ++j) {
 					c = fConsumeAndNext(false);
 					uint32_t val = uint32_t(cp::ascii::GetRadix(c));
 					if (val >= 16)

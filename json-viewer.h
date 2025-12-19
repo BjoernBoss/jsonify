@@ -467,10 +467,14 @@ namespace json {
 				return *this;
 			}
 			iterator operator++(int) {
-				return iterator{ pState, pIndex + 1 };
+				iterator out{ pState, pIndex };
+				++(*this);
+				return out;
 			}
 			iterator operator--(int) {
-				return iterator{ pState, pIndex - 1 };
+				iterator out{ pState, pIndex };
+				--(*this);
+				return out;
 			}
 			constexpr bool operator==(const iterator& it) const {
 				return (pIndex == it.pIndex);
@@ -586,10 +590,14 @@ namespace json {
 				return *this;
 			}
 			iterator operator++(int) {
-				return iterator{ pState, pIndex + 2 };
+				iterator out{ pState, pIndex };
+				++(*this);
+				return out;
 			}
 			iterator operator--(int) {
-				return iterator{ pState, pIndex - 2 };
+				iterator out{ pState, pIndex };
+				--(*this);
+				return out;
 			}
 			constexpr bool operator==(const iterator& it) const {
 				return (pIndex == it.pIndex);
