@@ -2,9 +2,9 @@
 /* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
 #pragma once
 
-#include "json-common.h"
+#include "../json-common.h"
+#include "../json-value.h"
 #include "json-deserializer.h"
-#include "json-value.h"
 
 namespace json {
 	class Viewer;

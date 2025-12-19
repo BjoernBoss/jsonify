@@ -26,7 +26,7 @@ json::Value value = json::Obj{ { L"abc", 5 }, { L"def", json::Null } };
 value[L"ghi"] = { u8"abc", u8"def", u8"ghi" };
 ```
 
-## [json::Serialize](json-serialize.h)
+## [json::Serialize](serialize/json-serialize.h)
 
 The library offers two serialization functions: `json::Serialize(value, indent)` and `json::SerializeTo(sink, value, indent)`. `json::Serialize` will serialize the json-like object to a string-sink (see [`ustring`](https://github.com/BjoernBoss/ustring.git)) of the given type and return the sink. `json::SerializeTo` will perform the same serialization, but will write it to the sink passed in as the first argument.
 
@@ -43,7 +43,7 @@ json::SerializeTo(_s2, 50);
 json::SerializeTo(std::cout, 50.0f);
 ```
 
-## [json::Deserialize](json-deserialize.h)
+## [json::Deserialize](deserialize/json-deserialize.h)
 
 The `json::Deserialize(stream)` function takes any character-stream (see [`ustring`](https://github.com/BjoernBoss/ustring.git)) and deserializes it to a `json::Value`. The `\u` escape sequences within strings are considered `utf-16` encodings. The function expects the entire stream of characters to be fully consumed, and will otherwise raise an exception. For duplicate keys, the last encountered value will be used.
 
@@ -55,7 +55,7 @@ auto _v0 = json::Deserialize(file);
 auto _v1 = json::Deserialize(u"{ \"1\": 50, \"2\": null, \"3\": [] }");
 ```
 
-## [json::Builder](json-builder.h)
+## [json::Builder](serialize/json-builder.h)
 
 The `json::Builder` can be used to continuously construct a serialized json-string. Suitable for large data-structures, which should be serialized to json, without an intermediate `json::Value` being constructed. To instantiate a `json::Builder`, the function `json::Build(sink, indent)` is provided. It sets up an internal state, which serializes directly out to the string-sink.
 
@@ -91,7 +91,7 @@ obj.close();
 
 The `json::Builder` can also be used to embed already well formatted `JSON` string into the output stream.
 
-## [json::Reader](json-reader.h)
+## [json::Reader](deserialize/json-reader.h)
 
 The `json::Reader` can be used to read a character-stream and fetch the json value simultaneously to parsing the stream. This is suitable for large data-structures, which should be deserialized from json, without an intermediate `json::Value` being contructed. To instantiate a `json::Reader`, the function `json::Read(stream)` is provided. It sets up an internal state, which directly parses the entire character stream.
 
@@ -121,7 +121,7 @@ if (reader.isObj()) {
 ```
 The `json::Reader` can also be used to determine the position of the object in the `JSON` source stream.
 
-## [json::Viewer](json-viewer.h)
+## [json::Viewer](deserialize/json-viewer.h)
 
 The `json::Viewer` can be used to read a character-stream and validate and parse it into a randomly accessible json-like structure. This is suitable for data-structures, which need to be fully validated once, but will immediately be converted to another representation internally, while simultaneously allowing for random accesses to object-members. To instantiate a `json::Viewer`, the function `json::View(stream)` is provided. It sets up an internal state, which directly parses the entire character stream.
 
@@ -145,7 +145,7 @@ if (viewer.isObj()) {
 }
 ```
 
-## [json::AnyBuilder](json-builder.h), [json::AnyReader](json-reader.h)
+## [json::AnyBuilder](serialize/json-builder.h), [json::AnyReader](deserialize/json-reader.h)
 
 As `json::Builder` and `json::Reader` are templated, and based on the type of the sink/stream, the `json::AnyBuilder` and corresponding function `json::BuildAny(sink, indent)`, as well as `json::AnyReader` and corresponding `json::ReadAny(stream)`, are provided. They provide a generic type-independent builder/reader type by hiding the underlying type, using inheritance. The building/reading is therefore slightly more expensive, while offering independence of the type as a trade-off.
 
