@@ -2,10 +2,10 @@
 /* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
 #pragma once
 
-#include "json-builder.h"
-#include "json-reader.h"
-#include "json-viewer.h"
-#include "json-serialize.h"
-#include "json-deserialize.h"
+#include "serialize/json-builder.h"
+#include "serialize/json-serialize.h"
+#include "deserialize/json-reader.h"
+#include "deserialize/json-viewer.h"
+#include "deserialize/json-deserialize.h"
 #include "json-value.h"
 #include "json-pointer.h"

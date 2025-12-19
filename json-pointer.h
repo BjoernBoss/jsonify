@@ -4,7 +4,7 @@
 
 #include "json-common.h"
 #include "json-value.h"
-#include "json-viewer.h"
+#include "deserialize/json-viewer.h"
 
 namespace json {
 	/* check if the given type constitutes a valid path component for a json pointer */

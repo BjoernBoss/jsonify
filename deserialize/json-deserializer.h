@@ -2,7 +2,7 @@
 /* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
 #pragma once
 
-#include "json-common.h"
+#include "../json-common.h"
 
 namespace json {
 	/* deserialization interprets \u escape-sequences as utf-16 encoding */

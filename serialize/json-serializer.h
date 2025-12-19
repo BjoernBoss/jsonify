@@ -2,7 +2,7 @@
 /* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
 #pragma once
 
-#include "json-common.h"
+#include "../json-common.h"
 
 namespace json::detail {
 	template <class SinkType, str::CodeError Error>
