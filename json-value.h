@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2024-2026 Bjoern Boss Henrichsen */
 #pragma once
 
 #include "json-common.h"
@@ -412,12 +412,12 @@ namespace json {
 
 		constexpr json::Bool boolean() const {
 			if (!std::holds_alternative<json::Bool>(*this))
-				throw json::TypeException(L"json::Value is not a bool");
+				throw json::TypeException{ u"json::Value is not a bool" };
 			return std::get<json::Bool>(*this);
 		}
 		const json::Str& str() const {
 			if (!std::holds_alternative<detail::StrPtr>(*this))
-				throw json::TypeException(L"json::Value is not a string");
+				throw json::TypeException{ u"json::Value is not a string" };
 			return *std::get<detail::StrPtr>(*this);
 		}
 		constexpr json::UNum unum() const {
@@ -427,7 +427,7 @@ namespace json {
 				return json::UNum(std::get<json::Real>(*this));
 
 			if (!std::holds_alternative<json::UNum>(*this))
-				throw json::TypeException(L"json::Value is not an unsigned-number");
+				throw json::TypeException{ u"json::Value is not an unsigned-number" };
 			return std::get<json::UNum>(*this);
 		}
 		constexpr json::INum inum() const {
@@ -437,7 +437,7 @@ namespace json {
 				return json::INum(std::get<json::Real>(*this));
 
 			if (!std::holds_alternative<json::INum>(*this))
-				throw json::TypeException(L"json::Value is not a signed-number");
+				throw json::TypeException{ u"json::Value is not a signed-number" };
 			return std::get<json::INum>(*this);
 		}
 		constexpr json::Real real() const {
@@ -447,17 +447,17 @@ namespace json {
 				return json::Real(std::get<json::INum>(*this));
 
 			if (!std::holds_alternative<json::Real>(*this))
-				throw json::TypeException(L"json::Value is not a real");
+				throw json::TypeException{ u"json::Value is not a real" };
 			return std::get<json::Real>(*this);
 		}
 		const json::Arr& arr() const {
 			if (!std::holds_alternative<detail::ArrPtr>(*this))
-				throw json::TypeException(L"json::Value is not an array");
+				throw json::TypeException{ u"json::Value is not an array" };
 			return *std::get<detail::ArrPtr>(*this);
 		}
 		const json::Obj& obj() const {
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
-				throw json::TypeException(L"json::Value is not an object");
+				throw json::TypeException{ u"json::Value is not an object" };
 			return *std::get<detail::ObjPtr>(*this);
 		}
 
@@ -507,11 +507,11 @@ namespace json {
 		}
 		const json::Value& at(const json::Str& k) const {
 			if (!std::holds_alternative<detail::ObjPtr>(*this))
-				throw json::TypeException(L"json::Value is not a object");
+				throw json::TypeException{ u"json::Value is not a object" };
 			const json::Obj& obj = *std::get<detail::ObjPtr>(*this);
 			auto it = obj.find(k);
 			if (it == obj.end())
-				throw json::RangeException(L"Object key is undefined");
+				throw json::RangeException{ u"Object key is undefined" };
 			return it->second;
 		}
 		json::Value& at(const json::Str& k) {
@@ -555,17 +555,17 @@ namespace json {
 		}
 		const json::Value& at(size_t i) const {
 			if (!std::holds_alternative<detail::ArrPtr>(*this))
-				throw json::TypeException(L"json::Value is not a array");
+				throw json::TypeException{ u"json::Value is not a array" };
 			const json::Arr& arr = *std::get<detail::ArrPtr>(*this);
 			if (i >= arr.size())
-				throw json::RangeException(L"Array index out of range");
+				throw json::RangeException{ u"Array index out of range" };
 			return arr[i];
 		}
 		json::Value& at(size_t i) {
 			fEnsureType(json::Type::array);
 			json::Arr& arr = *std::get<detail::ArrPtr>(*this);
 			if (i >= arr.size())
-				throw json::RangeException(L"Array index out of range");
+				throw json::RangeException{ u"Array index out of range" };
 			return arr[i];
 		}
 		constexpr void push_back(const json::Value& v) {

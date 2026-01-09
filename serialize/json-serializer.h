@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2024-2026 Bjoern Boss Henrichsen */
 #pragma once
 
 #include "../json-common.h"
@@ -9,7 +9,7 @@ namespace json::detail {
 	class Serializer {
 	private:
 		SinkType pSink;
-		std::wstring pIndent;
+		std::string pIndent;
 		size_t pDepth = 0;
 		bool pAlreadyHasValue = false;
 
@@ -73,10 +73,10 @@ namespace json::detail {
 		}
 
 	public:
-		constexpr Serializer(SinkType&& sink, std::wstring_view indent) : pSink{ std::forward<SinkType>(sink) } {
+		constexpr Serializer(SinkType&& sink, std::string_view indent) : pSink{ std::forward<SinkType>(sink) } {
 			/* ensure whitespace only consists of tabs/spaces */
-			for (wchar_t c : indent) {
-				if (c == L' ' || c == L'\t')
+			for (char c : indent) {
+				if (c == ' ' || c == '\t')
 					pIndent.push_back(c);
 			}
 		}

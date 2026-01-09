@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2024-2026 Bjoern Boss Henrichsen */
 #pragma once
 
 #include "../json-common.h"
@@ -67,7 +67,7 @@ namespace json {
 			}
 
 		public:
-			constexpr JsonSerializer(SinkType&& sink, std::wstring_view indent, const auto& v) : pSerializer{ std::forward<SinkType>(sink), indent } {
+			constexpr JsonSerializer(SinkType&& sink, std::string_view indent, const auto& v) : pSerializer{ std::forward<SinkType>(sink), indent } {
 				fWrite(v);
 			}
 		};
@@ -76,7 +76,7 @@ namespace json {
 	/* serialize the json-like object to the sink and return it (indentation will be sanitized to
 	*	only contain spaces and tabs, if indentation is empty, a compact json stream will be produced) */
 	template <str::CodeError Error = str::CodeError::replace>
-	constexpr void SerializeTo(str::IsSink auto&& sink, const json::IsJson auto& value, std::wstring_view indent = L"\t") {
+	constexpr void SerializeTo(str::IsSink auto&& sink, const json::IsJson auto& value, std::string_view indent = "\t") {
 		using SinkType = decltype(sink);
 
 		detail::JsonSerializer<SinkType, Error> _serializer{ std::forward<SinkType>(sink), indent, value };
@@ -85,7 +85,7 @@ namespace json {
 	/* serialize the json-like object to an object of the given sink-type using json::SerializeTo and return it (indentation
 	*	will be sanitized to only contain spaces and tabs, if indentation is empty, a compact json stream will be produced) */
 	template <str::IsSink SinkType, str::CodeError Error = str::CodeError::replace>
-	constexpr SinkType Serialize(const json::IsJson auto& value, std::wstring_view indent = L"\t") {
+	constexpr SinkType Serialize(const json::IsJson auto& value, std::string_view indent = "\t") {
 		SinkType sink{};
 		json::SerializeTo<Error>(sink, value, indent);
 		return sink;

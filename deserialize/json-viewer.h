@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2024-2026 Bjoern Boss Henrichsen */
 #pragma once
 
 #include "../json-common.h"
@@ -250,12 +250,12 @@ namespace json {
 	public:
 		constexpr json::Bool boolean() const {
 			if (!std::holds_alternative<json::Bool>(*this))
-				throw json::TypeException(L"json::Viewer is not a bool");
+				throw json::TypeException{ u"json::Viewer is not a bool" };
 			return std::get<json::Bool>(*this);
 		}
 		constexpr json::StrView str() const {
 			if (!std::holds_alternative<detail::StrViewObject>(*this))
-				throw json::TypeException(L"json::Viewer is not a string");
+				throw json::TypeException{ u"json::Viewer is not a string" };
 
 			detail::StrViewObject str = std::get<detail::StrViewObject>(*this);
 			return json::StrView{ pState->strings.data() + str.offset, str.length };
@@ -267,7 +267,7 @@ namespace json {
 				return json::UNum(std::get<json::Real>(*this));
 
 			if (!std::holds_alternative<json::UNum>(*this))
-				throw json::TypeException(L"json::Viewer is not an unsigned-number");
+				throw json::TypeException{ u"json::Viewer is not an unsigned-number" };
 			return std::get<json::UNum>(*this);
 		}
 		constexpr json::INum inum() const {
@@ -277,7 +277,7 @@ namespace json {
 				return json::INum(std::get<json::Real>(*this));
 
 			if (!std::holds_alternative<json::INum>(*this))
-				throw json::TypeException(L"json::Viewer is not a signed-number");
+				throw json::TypeException{ u"json::Viewer is not a signed-number" };
 			return std::get<json::INum>(*this);
 		}
 		constexpr json::Real real() const {
@@ -287,7 +287,7 @@ namespace json {
 				return json::Real(std::get<json::INum>(*this));
 
 			if (!std::holds_alternative<json::Real>(*this))
-				throw json::TypeException(L"json::Viewer is not a real");
+				throw json::TypeException{ u"json::Viewer is not a real" };
 			return std::get<json::Real>(*this);
 		}
 		json::ArrViewer arr() const;
@@ -341,12 +341,12 @@ namespace json {
 		}
 		json::Viewer at(json::StrView k) const {
 			if (!std::holds_alternative<detail::ObjViewObject>(*this))
-				throw json::TypeException(L"json::Viewer is not a object");
+				throw json::TypeException{ u"json::Viewer is not a object" };
 			detail::ObjViewObject obj = std::get<detail::ObjViewObject>(*this);
 
 			if (detail::ViewObjLookup(k, obj, pLastKey, pState))
 				return json::Viewer{ pState, obj.offset + pLastKey + 1 };
-			throw json::RangeException(L"Object key is undefined");
+			throw json::RangeException{ u"Object key is undefined" };
 		}
 		constexpr bool contains(json::StrView k) const {
 			if (!std::holds_alternative<detail::ObjViewObject>(*this))
@@ -381,11 +381,11 @@ namespace json {
 		}
 		json::Viewer at(size_t i) const {
 			if (!std::holds_alternative<detail::ArrViewObject>(*this))
-				throw json::TypeException(L"json::Viewer is not a array");
+				throw json::TypeException{ u"json::Viewer is not a array" };
 			detail::ArrViewObject arr = std::get<detail::ArrViewObject>(*this);
 
 			if (i >= arr.size)
-				throw json::RangeException(L"Array index out of range");
+				throw json::RangeException{ u"Array index out of range" };
 			return json::Viewer{ pState, arr.offset + i };
 		}
 		constexpr bool has(size_t i) const {
@@ -532,7 +532,7 @@ namespace json {
 		}
 		json::Viewer at(size_t index) const {
 			if (index >= pSelf.size)
-				throw json::RangeException(L"Array index out of range");
+				throw json::RangeException{ u"Array index out of range" };
 			return detail::ViewAccess::Make(pState, pSelf.offset + index);
 		}
 	};
@@ -666,18 +666,18 @@ namespace json {
 		json::Viewer at(json::StrView k) const {
 			if (detail::ViewObjLookup(k, pSelf, pLastKey, pState))
 				return detail::ViewAccess::Make(pState, pSelf.offset + pLastKey + 1);
-			throw json::RangeException(L"Object key is undefined");
+			throw json::RangeException{ u"Object key is undefined" };
 		}
 	};
 
 	inline json::ArrViewer json::Viewer::arr() const {
 		if (!std::holds_alternative<detail::ArrViewObject>(*this))
-			throw json::TypeException(L"json::Viewer is not an array");
+			throw json::TypeException{ u"json::Viewer is not an array" };
 		return json::ArrViewer{ pState, std::get<detail::ArrViewObject>(*this) };
 	}
 	inline json::ObjViewer json::Viewer::obj() const {
 		if (!std::holds_alternative<detail::ObjViewObject>(*this))
-			throw json::TypeException(L"json::Viewer is not an object");
+			throw json::TypeException{ u"json::Viewer is not an object" };
 		return json::ObjViewer{ pState, std::get<detail::ObjViewObject>(*this) };
 	}
 	inline json::Value json::Viewer::value() const {

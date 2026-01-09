@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2024-2026 Bjoern Boss Henrichsen */
 #pragma once
 
 #include "../json-common.h"
@@ -40,7 +40,7 @@ namespace json {
 			bool pAwaitingValue = false;
 
 		public:
-			constexpr BuilderState(ActSink&& sink, std::wstring_view indent) : pSerializer{ std::forward<ActSink>(sink), indent } {}
+			constexpr BuilderState(ActSink&& sink, std::string_view indent) : pSerializer{ std::forward<ActSink>(sink), indent } {}
 			constexpr ~BuilderState() {
 				/* check if a single value remains (can happen if nothing is ever written out) */
 				if (pAwaitingValue)
@@ -59,7 +59,7 @@ namespace json {
 			}
 			constexpr void fCheckStamp(size_t stamp) {
 				if (stamp != pNextStamp || !pAwaitingValue)
-					throw json::BuilderException(L"Builder is not in an active state");
+					throw json::BuilderException{ u"Builder is not in an active state" };
 				pAwaitingValue = false;
 			}
 			constexpr void fEnsureTopMost(Instance* instance) {
@@ -148,7 +148,7 @@ namespace json {
 			constexpr size_t allocNext(Instance* instance, const auto& key) {
 				/* check if this object is already closed and can therefore not capture the focus anymore and otherwise focus it */
 				if (instance->closed)
-					throw json::BuilderException(L"Builder is not in an active state");
+					throw json::BuilderException{ u"Builder is not in an active state" };
 				fEnsureTopMost(instance);
 
 				/* write the key out and mark the value as awaited */
@@ -281,7 +281,7 @@ namespace json {
 		}
 
 	public:
-		json::Builder<SinkType, Error> operator[](const json::IsString auto& k) {
+		json::Builder<SinkType, Error> operator[](json::StrView k) {
 			return ObjBuilder<SinkType, Error>::addVal(k);
 		}
 
@@ -297,33 +297,33 @@ namespace json {
 		}
 
 		/* add a new value using the given key and return the value-builder to it */
-		json::Builder<SinkType, Error> addVal(const json::IsString auto& k) {
+		json::Builder<SinkType, Error> addVal(json::StrView k) {
 			size_t stamp = pBuilder->allocNext(pInstance.get(), k);
 			return detail::BuildAccess::MakeValue<SinkType, Error>(pBuilder, stamp);
 		}
 
 		/* add a new array using the given key and return the array-builder to it */
-		json::ArrBuilder<SinkType, Error> addArr(const json::IsString auto& k) {
+		json::ArrBuilder<SinkType, Error> addArr(json::StrView k) {
 			size_t stamp = pBuilder->allocNext(pInstance.get(), k);
 			auto instance = pBuilder->open(stamp, false);
 			return detail::BuildAccess::MakeArray<SinkType, Error>(pBuilder, std::move(instance));
 		}
 
 		/* add a new object using the given key and return the object-builder to it */
-		json::ObjBuilder<SinkType, Error> addObj(const json::IsString auto& k) {
+		json::ObjBuilder<SinkType, Error> addObj(json::StrView k) {
 			size_t stamp = pBuilder->allocNext(pInstance.get(), k);
 			auto instance = pBuilder->open(stamp, true);
 			return detail::BuildAccess::MakeObject<SinkType, Error>(pBuilder, std::move(instance));
 		}
 
 		/* add a new json-like object using the given key */
-		void add(const json::IsString auto& k, const json::IsJson auto& v) {
+		void add(json::StrView k, const json::IsJson auto& v) {
 			size_t stamp = pBuilder->allocNext(pInstance.get(), k);
 			pBuilder->next(stamp, v);
 		}
 
 		/* push a well formed json-value (is not validated, caller must ensure its a single well formatted value) */
-		void pushJson(const json::IsString auto& k, const json::IsString auto& v) {
+		void pushJson(json::StrView k, const json::IsString auto& v) {
 			size_t stamp = pBuilder->allocNext(pInstance.get(), k);
 			pBuilder->insert(stamp, v);
 		}
@@ -366,33 +366,33 @@ namespace json {
 
 		/* push a new value and return the value-builder to it */
 		json::Builder<SinkType, Error> pushVal() {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), L"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
 			return detail::BuildAccess::MakeValue<SinkType, Error>(pBuilder, stamp);
 		}
 
 		/* push a new array and return the array-builder to it */
 		json::ArrBuilder<SinkType, Error> pushArr() {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), L"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
 			auto instance = pBuilder->open(stamp, false);
 			return detail::BuildAccess::MakeArray<SinkType, Error>(pBuilder, std::move(instance));
 		}
 
 		/* push a new object and return the object-builder to it */
 		json::ObjBuilder<SinkType, Error> pushObj() {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), L"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
 			auto instance = pBuilder->open(stamp, true);
 			return detail::BuildAccess::MakeObject<SinkType, Error>(pBuilder, std::move(instance));
 		}
 
 		/* push a new json-like object */
 		void push(const json::IsJson auto& v) {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), L"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
 			pBuilder->next(stamp, v);
 		}
 
 		/* push a well formed json-value (is not validated, caller must ensure its a single well formatted value) */
 		void pushJson(const json::IsString auto& v) {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), L"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
 			pBuilder->insert(stamp, v);
 		}
 	};
@@ -403,7 +403,7 @@ namespace json {
 	*	Note: Can be used to write already well formatted json value strings to the output stream
 	*	Note: For rvalues, a local move-constructed value of the sink is held, otherwise a reference is held and it must not outlive the sink */
 	template <str::IsSink SinkType, str::CodeError Error = str::CodeError::replace>
-	constexpr json::Builder<SinkType, Error> Build(SinkType&& sink, std::wstring_view indent = L"\t") {
+	constexpr json::Builder<SinkType, Error> Build(SinkType&& sink, std::string_view indent = "\t") {
 		/* setup the shared state and setup the root value */
 		auto state = std::make_shared<detail::BuilderState<SinkType, Error>>(std::forward<SinkType>(sink), indent);
 		return detail::BuildAccess::MakeValue<SinkType, Error>(state, state->allocFirst());
@@ -426,7 +426,7 @@ namespace json {
 	*	Note: Can be used to write already well formatted json value strings to the output stream
 	*	Note: For rvalues, a local move-constructed value of the sink is held, otherwise a reference is held and it must not outlive the sink */
 	template <str::IsSink SinkType>
-	json::AnyBuilder BuildAny(SinkType&& sink, std::wstring_view indent = L"\t") {
+	json::AnyBuilder BuildAny(SinkType&& sink, std::string_view indent = "\t") {
 		/* wrap the sink to be held by the builder */
 		std::unique_ptr<str::InheritSink> buildSink = std::make_unique<str::SinkImplementation<SinkType>>(std::forward<SinkType>(sink));
 

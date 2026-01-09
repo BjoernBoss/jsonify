@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2024-2026 Bjoern Boss Henrichsen */
 #pragma once
 
 #include <ustring/ustring.h>
@@ -21,8 +21,8 @@ namespace json {
 	using INum = int64_t;
 	using Real = double;
 	using Bool = bool;
-	using Str = std::wstring;
-	using StrView = std::wstring_view;
+	using Str = std::u16string;
+	using StrView = std::u16string_view;
 	struct NullType {};
 
 	/* quick-access to null */
@@ -40,9 +40,9 @@ namespace json {
 	};
 
 	/* exception thrown when using the library in an invalid way */
-	struct Exception : public str::wd::BuildException {
+	struct Exception : public str::u16::BuildException {
 		template <class... Args>
-		constexpr Exception(const Args&... args) : str::wd::BuildException{ args... } {}
+		constexpr Exception(const Args&... args) : str::u16::BuildException{ args... } {}
 	};
 
 	/* exception thrown when accessing a constant json::Value as a certain type, which it is not */

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
-/* Copyright (c) 2024-2025 Bjoern Boss Henrichsen */
+/* Copyright (c) 2024-2026 Bjoern Boss Henrichsen */
 #pragma once
 
 #include "../json-common.h"
@@ -48,7 +48,7 @@ namespace json::detail {
 
 				/* check if the EOF has been reached */
 				if (len == 0)
-					throw json::DeserializeException(L"Unexpected <EOF> encountered at ", pPosition);
+					throw json::DeserializeException{ u"Unexpected <EOF> encountered at ", pPosition };
 				pPosition += pLength;
 			}
 		}
@@ -97,7 +97,7 @@ namespace json::detail {
 			case U'u':
 				break;
 			default:
-				fParseError(u8"Unknown escape-sequence in string encountered");
+				fParseError(u"Unknown escape-sequence in string encountered");
 			}
 
 			/* decode the four hexits */
@@ -106,27 +106,27 @@ namespace json::detail {
 				c = fConsumeAndNext(false);
 				uint32_t val = uint32_t(cp::ascii::GetRadix(c));
 				if (val >= 16)
-					fParseError(u8"Invalid [\\u] escape-sequence in string encountered");
+					fParseError(u"Invalid [\\u] escape-sequence in string encountered");
 				num = (num << 4) + val;
 			}
 			return { char32_t(num), true };
 		}
 
 	private:
-		constexpr void fUnexpectedToken(char32_t token, const char8_t* expected) {
-			std::wstring err = str::wd::Format(u8"Unexpected token [{:e}] encountered at {} when {} was expected",
+		constexpr void fUnexpectedToken(char32_t token, const char16_t* expected) {
+			std::u16string err = str::u16::Format(u"Unexpected token [{:e}] encountered at {} when {} was expected",
 				token, pPosition, expected);
-			throw json::DeserializeException(err);
+			throw json::DeserializeException{ err };
 		}
-		constexpr void fParseError(const char8_t* what) {
-			throw json::DeserializeException(what, L" while parsing the json at ", pPosition);
+		constexpr void fParseError(const char16_t* what) {
+			throw json::DeserializeException{ what, u" while parsing the json at ", pPosition };
 		}
 		constexpr void fCheckWord(std::u32string_view word) {
 			/* verify the remaining characters (first character is already verified to determine the type) */
 			for (size_t i = 1; i < word.size(); ++i) {
 				char32_t c = fConsumeAndNext(false);
 				if (c != word[i])
-					fUnexpectedToken(c, str::u8::Format(u8"[{}] of [{}]", word[i], word).c_str());
+					fUnexpectedToken(c, str::u16::Format(u"[{}] of [{}]", word[i], word).c_str());
 			}
 			fConsume();
 		}
@@ -141,7 +141,7 @@ namespace json::detail {
 			}
 
 			/* setup the error */
-			fUnexpectedToken(c, obj ? u8"[,] or closing object-bracket" : u8"[,] or closing array-bracket");
+			fUnexpectedToken(c, obj ? u"[,] or closing object-bracket" : u"[,] or closing array-bracket");
 			return false;
 		}
 		constexpr bool checkIsEmpty(bool obj) {
@@ -175,7 +175,7 @@ namespace json::detail {
 				return { (c == U'n' ? json::Type::null : json::Type::boolean), start };
 
 			/* setup the error */
-			fUnexpectedToken(c, u8"json-value");
+			fUnexpectedToken(c, u"json-value");
 			return { json::Type::null, start };
 		}
 		constexpr json::NullType readNull() {
@@ -230,7 +230,7 @@ namespace json::detail {
 			/* check if a valid final state has been entered */
 			detail::NumberValue value = json::UNum(0);
 			if (state == NumState::preSign || state == NumState::preDigits || state == NumState::preFraction || state == NumState::preExpSign || state == NumState::preExponent)
-				fParseError(u8"Malformed json number encountered");
+				fParseError(u"Malformed json number encountered");
 
 			/* try to parse the number as integer (if its out-of-range for ints, parse it again as real) */
 			str::ParsedNum result;
@@ -249,14 +249,14 @@ namespace json::detail {
 
 			/* check if the entire number has been consumed */
 			if (result.consumed != pBuffer.size())
-				fParseError(u8"Number parsing error occurred");
+				fParseError(u"Number parsing error occurred");
 			return value;
 		}
 		constexpr void readString(auto& sink, bool key) {
 			/* validate the opening quotation mark */
 			char32_t c = fNextToken(true);
 			if (c != U'\"') {
-				fUnexpectedToken(c, u8"[\"] as start of a string");
+				fUnexpectedToken(c, u"[\"] as start of a string");
 				return;
 			}
 
@@ -272,7 +272,7 @@ namespace json::detail {
 						return;
 					c = fNextToken(true);
 					if (c != U':')
-						fUnexpectedToken(c, u8"[:] object-separator");
+						fUnexpectedToken(c, u"[:] object-separator");
 					else
 						fConsume();
 					return;
@@ -280,7 +280,7 @@ namespace json::detail {
 
 				/* check if the token is wellformed and not an escape-sequence */
 				if (cp::prop::IsControl(c))
-					fParseError(u8"Control characters in string encountered");
+					fParseError(u"Control characters in string encountered");
 				if (c != U'\\') {
 					str::CodepointTo<Error>(sink, c, 1);
 					c = fConsumeAndNext(false);
@@ -320,7 +320,7 @@ namespace json::detail {
 			/* check if the stream is done or only consists of whitespace */
 			char32_t c = fNextToken<true>(true);
 			if (c != str::Invalid)
-				fUnexpectedToken(c, u8"<EOF>");
+				fUnexpectedToken(c, u"<EOF>");
 		}
 		constexpr size_t end() const {
 			return pPosition;
