@@ -21,8 +21,8 @@ namespace json {
 	using INum = int64_t;
 	using Real = double;
 	using Bool = bool;
-	using Str = std::u16string;
-	using StrView = std::u16string_view;
+	using Str = std::string;
+	using StrView = std::string_view;
 	struct NullType {};
 
 	/* quick-access to null */
@@ -40,9 +40,9 @@ namespace json {
 	};
 
 	/* exception thrown when using the library in an invalid way */
-	struct Exception : public str::u16::BuildException {
+	struct Exception : public str::ch::BuildException {
 		template <class... Args>
-		constexpr Exception(const Args&... args) : str::u16::BuildException{ args... } {}
+		constexpr Exception(const Args&... args) : str::ch::BuildException{ args... } {}
 	};
 
 	/* exception thrown when accessing a constant json::Value as a certain type, which it is not */

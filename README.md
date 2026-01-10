@@ -20,10 +20,10 @@ This library is a header only library. Simply clone the repository, ensure that 
 
 ```C++
 /* assign a direct json-value */
-json::Value value = json::Obj{ { L"abc", 5 }, { L"def", json::Null } };
+json::Value value = json::Obj{ { "abc", 5 }, { "def", json::Null } };
 
 /* assign any json-like, which will be evaluated and assigned based on the type */
-value[L"ghi"] = { u8"abc", u8"def", u8"ghi" };
+value["ghi"] = { u8"abc", u8"def", u8"ghi" };
 ```
 
 ## [json::Serialize](serialize/json-serialize.h)
@@ -34,9 +34,9 @@ The library offers two serialization functions: `json::Serialize(value, indent)`
 ```C++
 auto _s0 = json::Serialize<std::wstring>(json::Arr{ 1, 2, 3 });
 auto _s1 = json::Serialize<std::u8string>(json::Obj{
-    { L"abc", json::Null },
-    { L"def", json::Arr{ 5, 6, 7 } }
-}, L"\t");
+    { "abc", json::Null },
+    { "def", json::Arr{ 5, 6, 7 } }
+}, "\t");
 
 std::string _s2;
 json::SerializeTo(_s2, 50);
@@ -61,19 +61,19 @@ The `json::Builder` can be used to continuously construct a serialized json-stri
 
 The builder will not prevent duplicate keys being written out to objects. But this sequential writing allows for already well-formatted json content to be written out, instead of values.
 
-Important: Regarding to the lifetime of the source objects, the reader uses the same lifetime model, as `ustring`.
+Important: Regarding to the lifetime of the source objects, the reader uses the same lifetime model as `ustring`.
 
 ```C++
 std::ofstream file = /* ... */;
 
 /* builder expects to be assigned any value */
-json::Builder<std::ofstream&> builder = json::Build(file, L"  ");
+json::Builder<std::ofstream&> builder = json::Build(file, "  ");
 
 /* make the root builder an object */
 auto obj = builder.obj();
-obj[u8"abc"] = 50;
-obj[u8"def"] = "abc";
-auto arr = obj[L"ghi"].arr();
+obj["abc"] = 50;
+obj["def"] = "abc";
+auto arr = obj["ghi"].arr();
 arr.push(1);
 arr.push(50);
 arr.push("x");
@@ -83,7 +83,7 @@ arr.push("x");
 obj["y"] = 2;
 
 /* assign any json-like value */
-obj["z"] = json::Obj{ { L"abc", 1 }, { L"def", 2 } };
+obj["z"] = json::Obj{ { "abc", 1 }, { "def", 2 } };
 
 /* explicit close, otherwise implicitly closed at destruction */
 obj.close();
@@ -108,13 +108,13 @@ json::Reader<std::ifstream&> reader = json::Read(file);
 /* check if the read is an object */
 if (reader.isObj()) {
     json::Value _t0;
-    std::wstring _t1;
+    std::string _t1;
 
     /* iterate over all key/value pairs in the object and look for the expected keys */
     for (const auto&[key, val] : reader.obj()) {
-        if (key == L"abc" && val.isStr())
+        if (key == "abc" && val.isStr())
             _t1 = val.str();
-        else if(key == L"def")
+        else if(key == "def")
             _t0 = val.value();
     }
 }
@@ -138,9 +138,9 @@ if (viewer.isObj()) {
     unsigned long long _t1;
 
     /* check if the necessary keys exist */
-    if (viewer.contains(L"abc", json::Type::string) && viewer.contains(L"def", json::Type::unumber)) {
-        _t0 = viewer[L"abc"];
-        _t1 = viewer[L"def"].unum();
+    if (viewer.contains("abc", json::Type::string) && viewer.contains("def", json::Type::unumber)) {
+        _t0 = viewer["abc"];
+        _t1 = viewer["def"].unum();
     }
 }
 ```
@@ -155,3 +155,12 @@ As `json::Builder` and `json::Reader` are templated, and based on the type of th
 The function `json::Resolve` allows to resolve a given well formed `JSON Pointer` into a `json::Value` or `json::Viewer`, and return the corresponding target object.
 
 The functions `json::Pointer` and `json::PointerTo` can be used to construct a well formed and escaped `JSON Pointer` string.
+
+```C++
+/* results in: /abc/1/5/~0/~1/2 */
+auto path = json::Pointer<std::string>("abc", 1, 5, "~", "/", 2);
+
+/* or resolving... */
+json::Value value = /* ... */;
+auto res = json::Resolve(value, u"/abc/1/2/3");
+```

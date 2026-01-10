@@ -59,7 +59,7 @@ namespace json {
 			}
 			constexpr void fCheckStamp(size_t stamp) {
 				if (stamp != pNextStamp || !pAwaitingValue)
-					throw json::BuilderException{ u"Builder is not in an active state" };
+					throw json::BuilderException{ "Builder is not in an active state" };
 				pAwaitingValue = false;
 			}
 			constexpr void fEnsureTopMost(Instance* instance) {
@@ -148,7 +148,7 @@ namespace json {
 			constexpr size_t allocNext(Instance* instance, const auto& key) {
 				/* check if this object is already closed and can therefore not capture the focus anymore and otherwise focus it */
 				if (instance->closed)
-					throw json::BuilderException{ u"Builder is not in an active state" };
+					throw json::BuilderException{ "Builder is not in an active state" };
 				fEnsureTopMost(instance);
 
 				/* write the key out and mark the value as awaited */
@@ -366,33 +366,33 @@ namespace json {
 
 		/* push a new value and return the value-builder to it */
 		json::Builder<SinkType, Error> pushVal() {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), "");
 			return detail::BuildAccess::MakeValue<SinkType, Error>(pBuilder, stamp);
 		}
 
 		/* push a new array and return the array-builder to it */
 		json::ArrBuilder<SinkType, Error> pushArr() {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), "");
 			auto instance = pBuilder->open(stamp, false);
 			return detail::BuildAccess::MakeArray<SinkType, Error>(pBuilder, std::move(instance));
 		}
 
 		/* push a new object and return the object-builder to it */
 		json::ObjBuilder<SinkType, Error> pushObj() {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), "");
 			auto instance = pBuilder->open(stamp, true);
 			return detail::BuildAccess::MakeObject<SinkType, Error>(pBuilder, std::move(instance));
 		}
 
 		/* push a new json-like object */
 		void push(const json::IsJson auto& v) {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), "");
 			pBuilder->next(stamp, v);
 		}
 
 		/* push a well formed json-value (is not validated, caller must ensure its a single well formatted value) */
 		void pushJson(const json::IsString auto& v) {
-			size_t stamp = pBuilder->allocNext(pInstance.get(), u"");
+			size_t stamp = pBuilder->allocNext(pInstance.get(), "");
 			pBuilder->insert(stamp, v);
 		}
 	};
