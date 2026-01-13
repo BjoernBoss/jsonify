@@ -253,13 +253,6 @@ namespace json {
 				throw json::TypeException{ "json::Viewer is not a bool" };
 			return std::get<json::Bool>(*this);
 		}
-		constexpr json::StrView str() const {
-			if (!std::holds_alternative<detail::StrViewObject>(*this))
-				throw json::TypeException{ "json::Viewer is not a string" };
-
-			detail::StrViewObject str = std::get<detail::StrViewObject>(*this);
-			return json::StrView{ pState->strings.data() + str.offset, str.length };
-		}
 		constexpr json::UNum unum() const {
 			if (std::holds_alternative<json::INum>(*this) && std::get<json::INum>(*this) >= 0)
 				return json::UNum(std::get<json::INum>(*this));
@@ -289,6 +282,13 @@ namespace json {
 			if (!std::holds_alternative<json::Real>(*this))
 				throw json::TypeException{ "json::Viewer is not a real" };
 			return std::get<json::Real>(*this);
+		}
+		json::StrView str() const {
+			if (!std::holds_alternative<detail::StrViewObject>(*this))
+				throw json::TypeException{ "json::Viewer is not a string" };
+
+			detail::StrViewObject str = std::get<detail::StrViewObject>(*this);
+			return json::StrView{ pState->strings.data() + str.offset, str.length };
 		}
 		json::ArrViewer arr() const;
 		json::ObjViewer obj() const;

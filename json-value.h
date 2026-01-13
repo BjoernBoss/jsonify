@@ -568,7 +568,7 @@ namespace json {
 				throw json::RangeException{ "Array index out of range" };
 			return arr[i];
 		}
-		constexpr void push_back(const json::Value& v) {
+		void push_back(const json::Value& v) {
 			fEnsureType(json::Type::array);
 			std::get<detail::ArrPtr>(*this)->push_back(v);
 		}
@@ -578,7 +578,7 @@ namespace json {
 			if (!arr.empty())
 				arr.pop_back();
 		}
-		constexpr void resize(size_t sz) {
+		void resize(size_t sz) {
 			fEnsureType(json::Type::array);
 			std::get<detail::ArrPtr>(*this)->resize(sz);
 		}

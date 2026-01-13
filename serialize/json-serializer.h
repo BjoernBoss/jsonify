@@ -64,7 +64,9 @@ namespace json::detail {
 					str::FastcodeAllTo<Error>(pSink, U"\\\\");
 				else if (out[0] == u'\"')
 					str::FastcodeAllTo<Error>(pSink, U"\\\"");
-				else if (cp::prop::IsPrint(out[0], false))
+
+				/* utf-16 maps 1-to-1 to unicode/utf-32, for single character entries */
+				else if (cp::prop::IsPrint(static_cast<char32_t>(out[0]), false))
 					str::CodepointTo<Error>(pSink, char32_t(out[0]));
 				else
 					fJsonUEscape(static_cast<uint16_t>(out[0]));
