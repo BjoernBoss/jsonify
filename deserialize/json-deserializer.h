@@ -26,50 +26,84 @@ namespace json::detail {
 		str::Stream<StreamType> pStream;
 		std::u32string pBuffer;
 		size_t pPosition = 0;
-		size_t pLength = 0;
+		size_t pNext = 0;
 		char32_t pLastToken = str::Invalid;
+		bool pComments = false;
 
 	public:
-		constexpr Deserializer(const str::IsStr auto& s) : pStream{ s } {}
-		constexpr Deserializer(StreamType&& s) : pStream{ std::forward<StreamType>(s) } {}
+		constexpr Deserializer(const str::IsStr auto& s, bool comments) : pStream{ s }, pComments{ comments } {}
+		constexpr Deserializer(StreamType&& s, bool comments) : pStream{ std::forward<StreamType>(s) }, pComments{ comments } {}
 
 	private:
 		template <bool AllowEndOfStream>
-		constexpr char32_t fPrepare() {
+		constexpr void fPrepare() {
 			while (true) {
-				if (AllowEndOfStream && pStream.done())
-					return str::Invalid;
+				if (AllowEndOfStream && pStream.done()) {
+					pLastToken = str::Invalid;
+					return;
+				}
 
-				/* fetch the next codepoint and skip all codepoints to be ignored (due to Error) */
+				/* fetch the next codepoint and mark it as consumed */
+				pPosition = pNext;
 				auto [cp, len] = str::GetCodepoint<Error>(pStream.load(str::MaxEncSize<ChType>));
-				pStream.consume(pLength = len);
-				if (cp != str::Invalid)
-					return (pLastToken = cp);
+				pStream.consume(len);
+				pNext += len;
+				pLastToken = cp;
 
-				/* check if the EOF has been reached */
+				/* check if a valid codepoint is encountered or skip it (due
+				*	to Error) and check if an EOF has been encountered */
+				if (pLastToken != str::Invalid)
+					return;
 				if (len == 0)
 					throw json::DeserializeException{ "Unexpected <EOF> encountered at ", pPosition };
-				pPosition += pLength;
 			}
 		}
 		constexpr void fConsume() {
-			pPosition += pLength;
 			pLastToken = str::Invalid;
 		}
 		template <bool AllowEndOfStream = false>
 		constexpr char32_t fNextToken(bool skipWhiteSpace) {
 			/* check if the next token needs to be fetched */
 			if (pLastToken == str::Invalid)
-				pLastToken = fPrepare<AllowEndOfStream>();
+				fPrepare<AllowEndOfStream>();
 
-			/* skip any leading whitespace */
-			if (skipWhiteSpace) {
-				while (pLastToken == U' ' || pLastToken == U'\n' || pLastToken == U'\r' || pLastToken == U'\t') {
-					pPosition += pLength;
-					pLastToken = fPrepare<AllowEndOfStream>();
+			/* check if whitespace should be preserved */
+			if (!skipWhiteSpace)
+				return pLastToken;
+
+			/* skip any leading whitespace and comments */
+			while (true) {
+				if (pLastToken == U' ' || pLastToken == U'\n' || pLastToken == U'\r' || pLastToken == U'\t') {
+					fPrepare<AllowEndOfStream>();
+					continue;
 				}
+
+				/* check if a comment starts (only syntax, which starts with a slash) */
+				if (pLastToken != U'/' || !pComments)
+					return pLastToken;
+				size_t lastPosition = pPosition;
+				fPrepare<AllowEndOfStream>();
+
+				/* check if its not a comment and restore the state (not fully, as it cannot be saved anyways) */
+				if (pLastToken != U'/' && pLastToken != U'*') {
+					pPosition = lastPosition;
+					return (pLastToken = U'/');
+				}
+				bool multiLine = (pLastToken == U'*'), lastWasAsteric = false;
+
+				/* skip to the end of the comment (EOF is an implicit end) */
+				while (true) {
+					fPrepare<AllowEndOfStream>();
+					if (pLastToken == str::Invalid)
+						return pLastToken;
+					if (multiLine ? (lastWasAsteric && pLastToken == U'/') : (pLastToken == U'\n'))
+						break;
+					lastWasAsteric = (pLastToken == U'*');
+				}
+
+				/* skip the last token of the comment - next token will be valid or whitespace again */
+				fPrepare<AllowEndOfStream>();
 			}
-			return pLastToken;
 		}
 		constexpr char32_t fConsumeAndNext(bool skipWhiteSpace) {
 			fConsume();
@@ -323,7 +357,7 @@ namespace json::detail {
 				fUnexpectedToken(c, "<EOF>");
 		}
 		constexpr size_t end() const {
-			return pPosition;
+			return (pLastToken == str::Invalid ? pNext : pPosition);
 		}
 	};
 }

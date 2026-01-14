@@ -116,7 +116,7 @@ namespace json {
 			}
 
 		public:
-			constexpr ViewDeserializer(StreamType&& stream, detail::ViewState& out) : pDeserializer{ std::forward<StreamType>(stream) } {
+			constexpr ViewDeserializer(StreamType&& stream, detail::ViewState& out, bool comments) : pDeserializer{ std::forward<StreamType>(stream), comments } {
 				out.entries.emplace_back();
 				out.entries[0] = fValue(out);
 				pDeserializer.checkDone();
@@ -689,14 +689,15 @@ namespace json {
 
 	/* construct a json value-viewer from the given stream and ensure that the entire stream is a single valid json-value
 	*	- interprets \u escape-sequences as utf-16 encoding
+	*	- optionally parse single line and multi-line comments
 	*	- expects entire stream to be a single json value until the end with optional whitespace padding
 	*	- for objects with multiple identical keys, all occurring keys/values will be accessible, but the first will be returned upon accesses */
 	template <str::CodeError Error = str::CodeError::replace>
-	json::Viewer View(str::IsStream auto&& stream) {
+	json::Viewer View(str::IsStream auto&& stream, bool comments = true) {
 		using StreamType = decltype(stream);
 
 		std::shared_ptr<detail::ViewState> state = std::make_shared<detail::ViewState>();
-		detail::ViewDeserializer<StreamType, Error> _deserializer{ std::forward<StreamType>(stream), *state.get() };
+		detail::ViewDeserializer<StreamType, Error> _deserializer{ std::forward<StreamType>(stream), *state.get(), comments };
 		return detail::ViewAccess::Make(state, 0);
 	}
 }

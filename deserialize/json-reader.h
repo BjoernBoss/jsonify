@@ -65,8 +65,8 @@ namespace json {
 			size_t pNextStamp = 0;
 
 		public:
-			constexpr ReaderState(const str::IsStr auto& stream) : pDeserializer{ stream } {}
-			constexpr ReaderState(ActStream&& stream) : pDeserializer{ std::forward<ActStream>(stream) } {}
+			constexpr ReaderState(const str::IsStr auto& stream, bool comments) : pDeserializer{ stream, comments } {}
+			constexpr ReaderState(ActStream&& stream, bool comments) : pDeserializer{ std::forward<ActStream>(stream), comments } {}
 			constexpr ~ReaderState() {
 				/* close all opened objects (will ensure the entire json is parsed properly) */
 				while (!pActive.empty())
@@ -640,14 +640,16 @@ namespace json {
 
 	/* construct a json value-reader from the given stream and ensure that the entire stream is a single valid
 	*	json-value and parse and validate the json along reading it instead of parsing it in its entirety beforehand
+	*	- interprets \u escape-sequences as utf-16 encoding
+	*	- optionally parse single line and multi-line comments
 	*	Note: Can be used to determine json value locations in the source stream
 	*	Note: lifetime requirements of str::Stream apply */
 	template <str::IsStream StreamType, str::CodeError Error = str::CodeError::replace>
-	constexpr json::Reader<str::StreamType<StreamType>, Error> Read(StreamType&& stream) {
+	constexpr json::Reader<str::StreamType<StreamType>, Error> Read(StreamType&& stream, bool comments = true) {
 		using BaseType = str::StreamType<StreamType>;
 
 		/* setup the first state and fetch the initial value */
-		auto state = std::make_shared<detail::ReaderState<BaseType, Error>>(std::forward<StreamType>(stream));
+		auto state = std::make_shared<detail::ReaderState<BaseType, Error>>(std::forward<StreamType>(stream), comments);
 		return state->initValue(state);
 	}
 
@@ -665,17 +667,19 @@ namespace json {
 
 	/* construct a json any-value-reader from the given stream, which hides the actual stream-type
 	*	by using inheritance internally, and is otherwise equivalent to json::Read (uses Error = str::CodeError::replace)
+	*	- interprets \u escape-sequences as utf-16 encoding
+	*	- optionally parse single line and multi-line comments
 	*	Note: Can be used to determine json value locations in the source stream
 	*	Note: lifetime requirements of str::Stream apply */
 	template <str::IsStream StreamType>
-	json::AnyReader ReadAny(StreamType&& stream) {
+	json::AnyReader ReadAny(StreamType&& stream, bool comments = true) {
 		using BaseType = str::StreamType<StreamType>;
 
 		/* wrap the stream to be held by the reader */
 		std::unique_ptr<str::InheritStream> readStream = std::make_unique<str::StreamImplementation<BaseType>>(std::forward<StreamType>(stream));
 
 		/* setup the first state and fetch the initial value */
-		auto state = std::make_shared<detail::ReaderState<detail::ReadAnyType, str::CodeError::replace>>(std::move(readStream));
+		auto state = std::make_shared<detail::ReaderState<detail::ReadAnyType, str::CodeError::replace>>(std::move(readStream), comments);
 		return state->initValue(state);
 	}
 }

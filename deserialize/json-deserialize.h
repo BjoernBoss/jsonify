@@ -69,7 +69,7 @@ namespace json {
 			}
 
 		public:
-			constexpr JsonDeserializer(StreamType&& stream, json::Value& out) : pDeserializer{ std::forward<StreamType>(stream) } {
+			constexpr JsonDeserializer(StreamType&& stream, json::Value& out, bool comments) : pDeserializer{ std::forward<StreamType>(stream), comments } {
 				fValue(out);
 				pDeserializer.checkDone();
 			}
@@ -78,14 +78,15 @@ namespace json {
 
 	/* deserialize the stream to a json-object into a json::Value object
 	*	- interprets \u escape-sequences as utf-16 encoding
+	*	- optionally parse single line and multi-line comments
 	*	- expects entire stream to be a single json value until the end with optional whitespace padding
 	*	- for objects with multiple identical keys, the last occurring value will be used */
 	template <str::CodeError Error = str::CodeError::replace>
-	json::Value Deserialize(str::IsStream auto&& stream) {
+	json::Value Deserialize(str::IsStream auto&& stream, bool comments = true) {
 		using StreamType = decltype(stream);
 
 		json::Value out;
-		detail::JsonDeserializer<StreamType, Error> _deserializer{ std::forward<StreamType>(stream), out };
+		detail::JsonDeserializer<StreamType, Error> _deserializer{ std::forward<StreamType>(stream), out, comments };
 		return out;
 	}
 }

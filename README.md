@@ -55,6 +55,8 @@ auto _v0 = json::Deserialize(file);
 auto _v1 = json::Deserialize(u"{ \"1\": 50, \"2\": null, \"3\": [] }");
 ```
 
+The function can optionally be configured to parse single line `// ...` and multi line comments `/* ... */` accordingly.
+
 ## [json::Builder](serialize/json-builder.h)
 
 The `json::Builder` can be used to continuously construct a serialized json-string. Suitable for large data-structures, which should be serialized to json, without an intermediate `json::Value` being constructed. To instantiate a `json::Builder`, the function `json::Build(sink, indent)` is provided. It sets up an internal state, which serializes directly out to the string-sink.
@@ -119,13 +121,13 @@ if (reader.isObj()) {
     }
 }
 ```
-The `json::Reader` can also be used to determine the position of the object in the `JSON` source stream.
+The `json::Reader` can also be used to determine the position of the object in the `JSON` source stream. It also supports comments.
 
 ## [json::Viewer](deserialize/json-viewer.h)
 
 The `json::Viewer` can be used to read a character-stream and validate and parse it into a randomly accessible json-like structure. This is suitable for data-structures, which need to be fully validated once, but will immediately be converted to another representation internally, while simultaneously allowing for random accesses to object-members. To instantiate a `json::Viewer`, the function `json::View(stream)` is provided. It sets up an internal state, which directly parses the entire character stream.
 
-The viewer allows objects to be accessed in random order, albeit slower than a `json::Value`, as it has a lookup-time of `O(n)`, and duplicate keys will all be preserved.
+The viewer allows objects to be accessed in random order, albeit slower than a `json::Value`, as it has a lookup-time of `O(n)`, and duplicate keys will all be preserved. It also supports comments.
 
 ```C++
 std::ifstream file = /* ... */;
