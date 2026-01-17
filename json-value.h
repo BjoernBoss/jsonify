@@ -4,7 +4,7 @@
 
 #include "json-common.h"
 
-#include <unordered_map>
+#include <map>
 #include <vector>
 
 namespace json {
@@ -25,11 +25,11 @@ namespace json {
 		constexpr bool typedArray(json::Type t) const;
 	};
 
-	/* [json::IsObject] json::Obj is a std::unordered_map of json::Str to json::Values with some additional ease-of-use functions
-	*	- original behavior of std::unordered_map is not modified */
-	struct Obj : public std::unordered_map<json::Str, json::Value> {
+	/* [json::IsObject] json::Obj is a std::map of json::Str to json::Values with some additional ease-of-use functions
+	*	- original behavior of std::map is not modified */
+	struct Obj : public std::map<json::Str, json::Value> {
 	private:
-		using Impl = std::unordered_map<json::Str, json::Value>;
+		using Impl = std::map<json::Str, json::Value>;
 
 	public:
 		using Impl::Impl;
