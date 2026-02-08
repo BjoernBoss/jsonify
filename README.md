@@ -28,7 +28,7 @@ value["ghi"] = { u8"abc", u8"def", u8"ghi" };
 
 ## [json::Serialize](serialize/json-serialize.h)
 
-The library offers two serialization functions: `json::Serialize(value, indent)` and `json::SerializeTo(sink, value, indent)`. `json::Serialize` will serialize the json-like object to a string-sink (see [`ustring`](https://github.com/BjoernBoss/ustring.git)) of the given type and return the sink. `json::SerializeTo` will perform the same serialization, but will write it to the sink passed in as the first argument.
+The library offers two serialization functions: `json::Serialize(value, indent)` and `json::SerializeTo(sink, value, indent)`. `json::Serialize` will serialize the json-like object to a string-sink (see [`ustring`](https://github.com/BjoernBoss/ustring.git)) of the given type. `json::SerializeTo` will perform the same serialization, but will write it to the sink passed in as the first argument.
 
 
 ```C++
